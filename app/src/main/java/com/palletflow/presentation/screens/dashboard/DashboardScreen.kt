@@ -28,7 +28,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.palletflow.presentation.navigation.BottomNavigationBar
 
 private val DarkBackground = Color(0xFF121212)
@@ -46,8 +45,7 @@ fun DashboardScreen(
     onMoveInventoryClick: () -> Unit,
     onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
-    onLogoutClick: () -> Unit,
-    viewModel: DashboardViewModel = hiltViewModel()
+    onLogoutClick: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -94,7 +92,6 @@ fun DashboardScreen(
                                     text = { Text("Logout", color = TextPrimary) },
                                     onClick = {
                                         menuExpanded = false
-                                        viewModel.logout()
                                         onLogoutClick()
                                     },
                                     leadingIcon = {
