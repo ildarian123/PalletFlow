@@ -118,6 +118,23 @@ fun AppNavGraph(navController: NavHostController) {
         
         composable(Screen.Dashboard.route) {
             DashboardScreen(
+                onReceiveLotClick = {
+                    navController.navigate(Screen.ReceiveNewLot.route)
+                },
+                onSellItemClick = {
+                    // For now navigate to Transactions or a generic screen
+                    navController.navigate(Screen.Transactions.route)
+                },
+                onMoveInventoryClick = {
+                    // Needs ID, generic for now
+                    navController.navigate(Screen.Inventory.route)
+                },
+                onAddExpenseClick = {
+                    navController.navigate(Screen.Transactions.route)
+                },
+                onSeeAllActivityClick = {
+                    navController.navigate(Screen.Transactions.route)
+                },
                 onLogoutClick = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Dashboard.route) { inclusive = true }
