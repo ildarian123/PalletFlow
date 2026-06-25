@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
 import com.palletflow.presentation.screens.auth.LoginScreen
 import com.palletflow.presentation.screens.auth.LoginViewModel
 import com.palletflow.presentation.screens.auth.RegisterScreen
+import com.palletflow.presentation.screens.auth.RegisterViewModel
 import com.palletflow.presentation.screens.auth.CreateProfileScreen
 import com.palletflow.presentation.screens.auth.SplashScreen
 import com.palletflow.presentation.screens.auth.SplashViewModel
@@ -69,9 +70,39 @@ fun AppNavGraph(navController: NavHostController) {
                     }
                 },
                 onSignUpClick = {
-                    navController.navigate(Screen.CreateProfile.route)
+                    navController.navigate(Screen.Register.route)
                 },
                 onGoogleClick = { /* Do nothing for now */ }
+            )
+        }
+        
+        composable(Screen.Register.route) {
+            val viewModel: RegisterViewModel = hiltViewModel()
+            val state by viewModel.uiState.collectAsState()
+
+            RegisterScreen(
+                state = state,
+                onFullNameChange = viewModel::onFullNameChange,
+                onEmailChange = viewModel::onEmailChange,
+                onPasswordChange = viewModel::onPasswordChange,
+                onConfirmPasswordChange = viewModel::onConfirmPasswordChange,
+                onBackClick = {
+                    navController.navigateUp()
+                },
+                onRegisterClick = {
+                    if (viewModel.validate()) {
+                        viewModel.saveCredentials()
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Register.route) { inclusive = true }
+                        }
+                    }
+                },
+                onGoogleClick = { /* Do nothing for now */ },
+                onSignInClick = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                }
             )
         }
         
@@ -81,14 +112,6 @@ fun AppNavGraph(navController: NavHostController) {
                     navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.CreateProfile.route) { inclusive = true }
                     }
-                }
-            )
-        }
-        
-        composable(Screen.Register.route) {
-            RegisterScreen(
-                onNavigateToLogin = {
-                    navController.navigateUp()
                 }
             )
         }

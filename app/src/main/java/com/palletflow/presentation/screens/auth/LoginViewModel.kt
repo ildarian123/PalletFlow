@@ -16,14 +16,10 @@ class LoginViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     init {
-        // Load saved credentials on start
-        val savedEmail = authPreferences.getEmail() ?: ""
-        val savedPassword = authPreferences.getPassword() ?: ""
+        // Pre-fill email with the last successful login email
+        val lastEmail = authPreferences.getLastEmail() ?: ""
         _uiState.update { 
-            it.copy(
-                email = savedEmail,
-                password = savedPassword
-            )
+            it.copy(email = lastEmail)
         }
     }
 
