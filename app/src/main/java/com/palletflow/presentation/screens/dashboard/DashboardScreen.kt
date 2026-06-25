@@ -28,7 +28,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.palletflow.presentation.navigation.BottomNavTab
 import com.palletflow.presentation.navigation.BottomNavigationBar
+import com.palletflow.presentation.screens.inventory.InventoryScreen
 
 private val DarkBackground = Color(0xFF121212)
 private val SurfaceColor = Color(0xFF1E1E1E)
@@ -45,7 +48,10 @@ fun DashboardScreen(
     onMoveInventoryClick: () -> Unit,
     onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    currentTab: BottomNavTab,
+    onTabSelected: (BottomNavTab) -> Unit,
+    viewModel: DashboardViewModel = hiltViewModel()
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -55,54 +61,45 @@ fun DashboardScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Dashboard",
+                        "Hi, Alex",
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
                 },
                 actions = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(end = 16.dp)
-                    ) {
-                        Text(
-                            "Hi, Alex",
-                            color = TextPrimary,
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                        Box {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(AccentColor)
-                                    .clickable { menuExpanded = true },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("A", color = Color.White, fontWeight = FontWeight.Bold)
-                            }
-                            
-                            DropdownMenu(
-                                expanded = menuExpanded,
-                                onDismissRequest = { menuExpanded = false },
-                                modifier = Modifier.background(SurfaceColor)
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Logout", color = TextPrimary) },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onLogoutClick()
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.AutoMirrored.Filled.Logout,
-                                            contentDescription = null,
-                                            tint = AccentColor
-                                        )
-                                    }
-                                )
-                            }
+                    Box {
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 16.dp)
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(AccentColor)
+                                .clickable { menuExpanded = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("A", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            modifier = Modifier.background(SurfaceColor)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Logout", color = TextPrimary) },
+                                onClick = {
+                                    menuExpanded = false
+                                    viewModel.logout()
+                                    onLogoutClick()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.Logout,
+                                        contentDescription = null,
+                                        tint = AccentColor
+                                    )
+                                }
+                            )
                         }
                     }
                 },
@@ -113,40 +110,69 @@ fun DashboardScreen(
         },
         bottomBar = {
             BottomNavigationBar(
-                currentRoute = "dashboard"
-            ) {
-                // Handle navigation in next steps
-            }
+                currentTab = currentTab,
+                onTabSelected = onTabSelected
+            )
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Metrics Section
-            MetricsSection()
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Quick Actions
-            QuickActionsSection(
-                onReceiveLotClick = onReceiveLotClick,
-                onSellItemClick = onSellItemClick,
-                onMoveInventoryClick = onMoveInventoryClick,
-                onAddExpenseClick = onAddExpenseClick
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Recent Activity
-            RecentActivitySection(onSeeAllActivityClick = onSeeAllActivityClick)
-            
-            Spacer(modifier = Modifier.height(24.dp))
+        Box(modifier = Modifier.padding(paddingValues)) {
+            when (currentTab) {
+                BottomNavTab.Dashboard -> {
+                    DashboardContent(
+                        onReceiveLotClick = onReceiveLotClick,
+                        onSellItemClick = onSellItemClick,
+                        onMoveInventoryClick = onMoveInventoryClick,
+                        onAddExpenseClick = onAddExpenseClick,
+                        onSeeAllActivityClick = onSeeAllActivityClick
+                    )
+                }
+                BottomNavTab.Inventory -> {
+                    InventoryScreen()
+                }
+                else -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(text = "${currentTab.title} Screen", color = TextPrimary)
+                    }
+                }
+            }
         }
+    }
+}
+
+@Composable
+fun DashboardContent(
+    onReceiveLotClick: () -> Unit,
+    onSellItemClick: () -> Unit,
+    onMoveInventoryClick: () -> Unit,
+    onAddExpenseClick: () -> Unit,
+    onSeeAllActivityClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Metrics Section
+        MetricsSection()
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Quick Actions
+        QuickActionsSection(
+            onReceiveLotClick = onReceiveLotClick,
+            onSellItemClick = onSellItemClick,
+            onMoveInventoryClick = onMoveInventoryClick,
+            onAddExpenseClick = onAddExpenseClick
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Recent Activity
+        RecentActivitySection(onSeeAllActivityClick = onSeeAllActivityClick)
+        
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -330,6 +356,8 @@ fun DashboardScreenPreview() {
         onMoveInventoryClick = {},
         onAddExpenseClick = {},
         onSeeAllActivityClick = {},
-        onLogoutClick = {}
+        onLogoutClick = {},
+        currentTab = BottomNavTab.Dashboard,
+        onTabSelected = {}
     )
 }

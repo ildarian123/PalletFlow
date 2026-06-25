@@ -7,44 +7,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 
-data class BottomNavItem(
-    val route: String,
-    val title: String,
-    val icon: ImageVector
-)
+enum class BottomNavTab(val route: String, val title: String, val icon: ImageVector) {
+    Dashboard(Screen.Dashboard.route, "Dashboard", Icons.Default.Dashboard),
+    Inventory(Screen.Inventory.route, "Inventory", Icons.Default.Inventory),
+    Transactions(Screen.Transactions.route, "Transactions", Icons.Default.Receipt),
+    Reports(Screen.Reports.route, "Reports", Icons.Default.BarChart),
+    More(Screen.Settings.route, "More", Icons.Default.MoreHoriz)
+}
 
 @Composable
 fun BottomNavigationBar(
-    currentRoute: String?,
-    onItemClick: (BottomNavItem) -> Unit
+    currentTab: BottomNavTab,
+    onTabSelected: (BottomNavTab) -> Unit
 ) {
-    val items = listOf(
-        BottomNavItem(Screen.Dashboard.route, "Dashboard", Icons.Default.Dashboard),
-        BottomNavItem(Screen.Inventory.route, "Inventory", Icons.Default.Inventory),
-        BottomNavItem(Screen.Transactions.route, "Transactions", Icons.Default.Receipt),
-        BottomNavItem(Screen.Reports.route, "Reports", Icons.Default.BarChart),
-        BottomNavItem(Screen.Settings.route, "More", Icons.Default.MoreHoriz)
-    )
-
     NavigationBar(
         containerColor = Color(0xFF1E1E1E),
         contentColor = Color(0xFF00C2A0)
     ) {
-        items.forEach { item ->
-            val selected = currentRoute == item.route
+        BottomNavTab.entries.forEach { tab ->
+            val selected = currentTab == tab
             NavigationBarItem(
                 selected = selected,
-                onClick = { onItemClick(item) },
+                onClick = { onTabSelected(tab) },
                 icon = {
                     Icon(
-                        imageVector = item.icon,
-                        contentDescription = item.title,
+                        imageVector = tab.icon,
+                        contentDescription = tab.title,
                         tint = if (selected) Color(0xFF00C2A0) else Color(0xFFA1A1A6)
                     )
                 },
                 label = {
                     Text(
-                        text = item.title,
+                        text = tab.title,
                         color = if (selected) Color(0xFF00C2A0) else Color(0xFFA1A1A6)
                     )
                 },

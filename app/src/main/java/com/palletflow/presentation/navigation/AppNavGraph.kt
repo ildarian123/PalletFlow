@@ -1,9 +1,6 @@
 package com.palletflow.presentation.navigation
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -16,6 +13,8 @@ import com.palletflow.presentation.screens.auth.CreateProfileScreen
 import com.palletflow.presentation.screens.auth.SplashScreen
 import com.palletflow.presentation.screens.auth.SplashViewModel
 import com.palletflow.presentation.screens.dashboard.DashboardScreen
+import com.palletflow.presentation.screens.inventory.InventoryScreen
+import com.palletflow.presentation.navigation.BottomNavTab
 
 @Composable
 fun AppNavGraph(navController: NavHostController) {
@@ -45,10 +44,6 @@ fun AppNavGraph(navController: NavHostController) {
             
             SplashScreen()
         }
-
-
-
-
 
         composable(Screen.Login.route) {
             val viewModel: LoginViewModel = hiltViewModel()
@@ -117,29 +112,21 @@ fun AppNavGraph(navController: NavHostController) {
         }
         
         composable(Screen.Dashboard.route) {
+            var currentTab by remember { mutableStateOf(BottomNavTab.Dashboard) }
+            
             DashboardScreen(
-                onReceiveLotClick = {
-                    navController.navigate(Screen.ReceiveNewLot.route)
-                },
-                onSellItemClick = {
-                    // For now navigate to Transactions or a generic screen
-                    navController.navigate(Screen.Transactions.route)
-                },
-                onMoveInventoryClick = {
-                    // Needs ID, generic for now
-                    navController.navigate(Screen.Inventory.route)
-                },
-                onAddExpenseClick = {
-                    navController.navigate(Screen.Transactions.route)
-                },
-                onSeeAllActivityClick = {
-                    navController.navigate(Screen.Transactions.route)
-                },
+                onReceiveLotClick = { navController.navigate(Screen.ReceiveNewLot.route) },
+                onSellItemClick = { navController.navigate(Screen.Transactions.route) },
+                onMoveInventoryClick = { navController.navigate(Screen.Inventory.route) },
+                onAddExpenseClick = { navController.navigate(Screen.Transactions.route) },
+                onSeeAllActivityClick = { navController.navigate(Screen.Transactions.route) },
                 onLogoutClick = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Dashboard.route) { inclusive = true }
                     }
-                }
+                },
+                currentTab = currentTab,
+                onTabSelected = { currentTab = it }
             )
         }
     }
