@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,49 +21,51 @@ private val TextPrimary = Color(0xFFF5F5F7)
 
 @Composable
 fun SplashScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBackground),
-        contentAlignment = Alignment.Center
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = DarkBackground
     ) {
         Column(
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             // Logo Placeholder
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .background(AccentColor, RoundedCornerShape(16.dp)),
+                    .size(100.dp)
+                    .background(AccentColor, RoundedCornerShape(20.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "PF",
                     color = Color.Black,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.ExtraBold
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             Text(
                 text = "PalletFlow",
                 color = TextPrimary,
-                fontSize = 32.sp,
+                fontSize = 36.sp,
                 fontWeight = FontWeight.Bold
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(64.dp))
 
             CircularProgressIndicator(
                 color = AccentColor,
-                strokeWidth = 3.dp
+                strokeWidth = 4.dp
             )
         }
     }
 }
+
+
+
 
 @Preview(showBackground = true)
 @Composable

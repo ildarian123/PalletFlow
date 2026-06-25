@@ -9,6 +9,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.palletflow.presentation.screens.auth.LoginScreen
+import com.palletflow.presentation.screens.auth.LoginViewModel
 import com.palletflow.presentation.screens.auth.RegisterScreen
 import com.palletflow.presentation.screens.auth.SplashScreen
 import com.palletflow.presentation.screens.auth.SplashViewModel
@@ -36,16 +37,28 @@ fun AppNavGraph(navController: NavHostController) {
                             popUpTo(Screen.Splash.route) { inclusive = true }
                         }
                     }
-                    SplashViewModel.AuthState.Loading -> { /* Keep showing splash */ }
+                    else -> {}
                 }
             }
             
             SplashScreen()
         }
 
+
+
+
+
         composable(Screen.Login.route) {
+            val viewModel: LoginViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
+
             LoginScreen(
+                emailValue = uiState.email,
+                passwordValue = uiState.password,
+                onEmailChange = viewModel::onEmailChange,
+                onPasswordChange = viewModel::onPasswordChange,
                 onLoginClick = {
+                    viewModel.saveCredentials()
                     navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -66,7 +79,13 @@ fun AppNavGraph(navController: NavHostController) {
         }
         
         composable(Screen.Dashboard.route) {
-            DashboardScreen()
+            DashboardScreen(
+                onLogoutClick = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = true }
+                    }
+                }
+            )
         }
     }
 }

@@ -19,20 +19,15 @@ class AuthPreferences(context: Context) {
     )
 
     fun saveCredentials(email: String, password: String) {
-        sharedPreferences.edit().apply {
-            putString("email", email)
-            putString("password", password)
-            apply()
-        }
+        sharedPreferences.edit()
+            .putString("email", email)
+            .putString("password", password)
+            .apply()
     }
 
-    fun getEmail(): String? {
-        return sharedPreferences.getString("email", null)
-    }
+    fun getEmail(): String? = sharedPreferences.getString("email", null)
 
-    fun getPassword(): String? {
-        return sharedPreferences.getString("password", null)
-    }
+    fun getPassword(): String? = sharedPreferences.getString("password", null)
 
     fun isLoggedIn(): Boolean {
         val email = getEmail()
@@ -41,10 +36,6 @@ class AuthPreferences(context: Context) {
     }
 
     fun clearCredentials() {
-        sharedPreferences.edit().apply {
-            remove("email")
-            remove("password")
-            apply()
-        }
+        sharedPreferences.edit().clear().apply()
     }
 }

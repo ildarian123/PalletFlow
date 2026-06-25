@@ -31,12 +31,14 @@ private val TextSecondary = Color(0xFFA1A1A6)
 
 @Composable
 fun LoginScreen(
+    emailValue: String,
+    passwordValue: String,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
     onLoginClick: () -> Unit,
     onSignUpClick: () -> Unit,
     onGoogleClick: () -> Unit
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -86,8 +88,8 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(48.dp))
 
             OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
+                value = emailValue,
+                onValueChange = onEmailChange,
                 label = { Text("Email") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -107,8 +109,8 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
+                value = passwordValue,
+                onValueChange = onPasswordChange,
                 label = { Text("Password") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -131,6 +133,7 @@ fun LoginScreen(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
+
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -236,6 +239,10 @@ fun LoginScreen(
 @Composable
 fun LoginScreenPreview() {
     LoginScreen(
+        emailValue = "test@example.com",
+        passwordValue = "password",
+        onEmailChange = {},
+        onPasswordChange = {},
         onLoginClick = {},
         onSignUpClick = {},
         onGoogleClick = {}
