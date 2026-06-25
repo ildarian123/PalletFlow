@@ -28,11 +28,14 @@ private val DarkBackground = Color(0xFF121212)
 private val AccentColor = Color(0xFF00C2A0)
 private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
+private val ErrorColor = Color(0xFFFF453A)
 
 @Composable
 fun LoginScreen(
     emailValue: String,
+    emailError: String? = null,
     passwordValue: String,
+    passwordError: String? = null,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onLoginClick: () -> Unit,
@@ -93,6 +96,12 @@ fun LoginScreen(
                 label = { Text("Email") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
+                isError = emailError != null,
+                supportingText = {
+                    if (emailError != null) {
+                        Text(text = emailError, color = ErrorColor)
+                    }
+                },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = TextPrimary,
                     unfocusedTextColor = TextPrimary,
@@ -100,13 +109,16 @@ fun LoginScreen(
                     unfocusedLabelColor = TextSecondary,
                     focusedBorderColor = AccentColor,
                     unfocusedBorderColor = TextSecondary,
-                    cursorColor = AccentColor
+                    cursorColor = AccentColor,
+                    errorBorderColor = ErrorColor,
+                    errorLabelColor = ErrorColor,
+                    errorTextColor = TextPrimary
                 ),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = passwordValue,
@@ -114,6 +126,12 @@ fun LoginScreen(
                 label = { Text("Password") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
+                isError = passwordError != null,
+                supportingText = {
+                    if (passwordError != null) {
+                        Text(text = passwordError, color = ErrorColor)
+                    }
+                },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
@@ -128,14 +146,17 @@ fun LoginScreen(
                     unfocusedLabelColor = TextSecondary,
                     focusedBorderColor = AccentColor,
                     unfocusedBorderColor = TextSecondary,
-                    cursorColor = AccentColor
+                    cursorColor = AccentColor,
+                    errorBorderColor = ErrorColor,
+                    errorLabelColor = ErrorColor,
+                    errorTextColor = TextPrimary
                 ),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
             )
 
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = onLoginClick,
@@ -248,5 +269,3 @@ fun LoginScreenPreview() {
         onGoogleClick = {}
     )
 }
-
-

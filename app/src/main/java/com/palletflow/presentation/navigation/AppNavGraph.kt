@@ -55,13 +55,17 @@ fun AppNavGraph(navController: NavHostController) {
 
             LoginScreen(
                 emailValue = uiState.email,
+                emailError = uiState.emailError,
                 passwordValue = uiState.password,
+                passwordError = uiState.passwordError,
                 onEmailChange = viewModel::onEmailChange,
                 onPasswordChange = viewModel::onPasswordChange,
                 onLoginClick = {
-                    viewModel.saveCredentials()
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                    if (viewModel.validate()) {
+                        viewModel.saveCredentials()
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
                     }
                 },
                 onSignUpClick = {

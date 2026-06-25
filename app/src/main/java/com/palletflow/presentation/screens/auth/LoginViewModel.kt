@@ -28,11 +28,30 @@ class LoginViewModel @Inject constructor(
     }
 
     fun onEmailChange(email: String) {
-        _uiState.update { it.copy(email = email) }
+        _uiState.update { it.copy(email = email, emailError = null) }
     }
 
     fun onPasswordChange(password: String) {
-        _uiState.update { it.copy(password = password) }
+        _uiState.update { it.copy(password = password, passwordError = null) }
+    }
+
+    fun validate(): Boolean {
+        val email = _uiState.value.email
+        val password = _uiState.value.password
+        
+        var isValid = true
+        
+        if (email.isBlank()) {
+            _uiState.update { it.copy(emailError = "Email cannot be empty") }
+            isValid = false
+        }
+        
+        if (password.isBlank()) {
+            _uiState.update { it.copy(passwordError = "Password cannot be empty") }
+            isValid = false
+        }
+        
+        return isValid
     }
 
     fun saveCredentials() {
@@ -43,6 +62,8 @@ class LoginViewModel @Inject constructor(
 
 data class LoginUiState(
     val email: String = "",
+    val emailError: String? = null,
     val password: String = "",
+    val passwordError: String? = null,
     val isLoading: Boolean = false
 )
