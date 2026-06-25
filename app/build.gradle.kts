@@ -67,6 +67,9 @@ dependencies {
     // Coil
     implementation(libs.coil.compose)
 
+    // Security
+    implementation(libs.androidx.security.crypto)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
