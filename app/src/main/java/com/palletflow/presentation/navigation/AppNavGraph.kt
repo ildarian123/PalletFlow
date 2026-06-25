@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
 import com.palletflow.presentation.screens.auth.LoginScreen
 import com.palletflow.presentation.screens.auth.LoginViewModel
 import com.palletflow.presentation.screens.auth.RegisterScreen
+import com.palletflow.presentation.screens.auth.CreateProfileScreen
 import com.palletflow.presentation.screens.auth.SplashScreen
 import com.palletflow.presentation.screens.auth.SplashViewModel
 import com.palletflow.presentation.screens.dashboard.DashboardScreen
@@ -64,9 +65,19 @@ fun AppNavGraph(navController: NavHostController) {
                     }
                 },
                 onSignUpClick = {
-                    navController.navigate(Screen.Register.route)
+                    navController.navigate(Screen.CreateProfile.route)
                 },
                 onGoogleClick = { /* Do nothing for now */ }
+            )
+        }
+        
+        composable(Screen.CreateProfile.route) {
+            CreateProfileScreen(
+                onNavigateToDashboard = {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.CreateProfile.route) { inclusive = true }
+                    }
+                }
             )
         }
         
