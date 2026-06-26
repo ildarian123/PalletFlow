@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -150,100 +151,55 @@ fun InventoryScreen(
                 }
             }
 
-            // 3. Featured Item Card (Only show if not searching or if it matches)
-            if (debouncedQuery.isEmpty() && selectedWarehouseIndex == 0) {
-                item {
-                    FeaturedItemCard(onItemClick)
-                }
-            }
-
-            // 4. Items List Header
-            item {
-                Text(
-                    if (debouncedQuery.isEmpty()) "Recent Batches" else "Search Results",
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-
             // 5. Items List
             items(filteredItems) { item ->
                 InventoryItemCard(item, onItemClick)
             }
         }
 
-        // 6. FAB
-        FloatingActionButton(
-            onClick = onAddClick,
-            containerColor = AccentColor,
-            contentColor = Color.White,
-            shape = RoundedCornerShape(12.dp),
+        // 6. FAB with Drop-up Menu
+        var fabExpanded by remember { mutableStateOf(false) }
+
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Add Item")
-        }
-    }
-}
-
-@Composable
-fun FeaturedItemCard(onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceColor)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Left side: Image placeholder
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(ImagePlaceholderColor),
-                contentAlignment = Alignment.Center
+            FloatingActionButton(
+                onClick = { fabExpanded = !fabExpanded },
+                containerColor = AccentColor,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(48.dp))
+                Icon(Icons.Default.Add, contentDescription = "Add Item")
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Right side: Item Details
-            Column(
-                modifier = Modifier.weight(1.2f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            DropdownMenu(
+                expanded = fabExpanded,
+                onDismissRequest = { fabExpanded = false },
+                modifier = Modifier.background(SurfaceColor)
             ) {
-                Text("Wireless Headphones Z1", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("Lot #1042", color = TextSecondary, fontSize = 13.sp)
-                Text("Qty: 24", color = TextSecondary, fontSize = 13.sp)
-                Text("Cost: $12.50", color = TextSecondary, fontSize = 13.sp)
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Surface(
-                    color = AccentColor,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        "+ $8.00",
-                        color = DarkBackground,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
+                DropdownMenuItem(
+                    text = { Text("Item", color = TextPrimary) },
+                    onClick = {
+                        fabExpanded = false
+                        onAddClick()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Folder", color = TextPrimary) },
+                    onClick = {
+                        fabExpanded = false
+                        // Handle folder creation
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Warehouse", color = TextPrimary) },
+                    onClick = {
+                        fabExpanded = false
+                        // Handle warehouse creation
+                    }
+                )
             }
         }
     }
@@ -293,4 +249,10 @@ fun InventoryItemCard(item: InventoryItem, onClick: () -> Unit) {
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun InventoryScreenPreview() {
+    InventoryScreen()
 }
