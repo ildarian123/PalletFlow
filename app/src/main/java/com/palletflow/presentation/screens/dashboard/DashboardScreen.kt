@@ -50,6 +50,7 @@ fun DashboardScreen(
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onInventoryItemClick: (Int) -> Unit,
+    onAddItemClick: () -> Unit,
     currentTab: BottomNavTab,
     onTabSelected: (BottomNavTab) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
@@ -129,7 +130,8 @@ fun DashboardScreen(
                 }
                 BottomNavTab.Inventory -> {
                     InventoryScreen(
-                        onItemClick = { onInventoryItemClick(1) } // Using 1 as placeholder ID
+                        onItemClick = { onInventoryItemClick(1) }, // Using 1 as placeholder ID
+                        onAddClick = onAddItemClick
                     )
                 }
                 else -> {
@@ -361,6 +363,7 @@ fun DashboardScreenPreview() {
         onSeeAllActivityClick = {},
         onLogoutClick = {},
         onInventoryItemClick = {},
+        onAddItemClick = {},
         currentTab = BottomNavTab.Dashboard,
         onTabSelected = {}
     )

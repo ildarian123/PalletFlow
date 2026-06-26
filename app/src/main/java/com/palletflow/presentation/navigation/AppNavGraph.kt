@@ -16,6 +16,7 @@ import com.palletflow.presentation.screens.dashboard.DashboardScreen
 import com.palletflow.presentation.screens.inventory.InventoryScreen
 import com.palletflow.presentation.screens.inventory.ItemDetailScreen
 import com.palletflow.presentation.screens.inventory.EditItemScreen
+import com.palletflow.presentation.screens.inventory.AddItemScreen
 import com.palletflow.presentation.navigation.BottomNavTab
 
 @Composable
@@ -130,6 +131,9 @@ fun AppNavGraph(navController: NavHostController) {
                 onInventoryItemClick = { itemId ->
                     navController.navigate(Screen.ItemDetail.createRoute(itemId))
                 },
+                onAddItemClick = {
+                    navController.navigate(Screen.AddItem.route)
+                },
                 currentTab = currentTab,
                 onTabSelected = { currentTab = it }
             )
@@ -157,6 +161,17 @@ fun AppNavGraph(navController: NavHostController) {
                     // Handle delete
                     navController.popBackStack()
                 }
+            )
+        }
+
+        composable(Screen.AddItem.route) {
+            AddItemScreen(
+                onBackClick = { navController.popBackStack() },
+                onSaveClick = { 
+                    // Handle save
+                    navController.popBackStack()
+                },
+                onScanClick = { /* Handle scan */ }
             )
         }
     }
