@@ -19,6 +19,8 @@ import com.palletflow.presentation.screens.inventory.ItemDetailScreen
 import com.palletflow.presentation.screens.inventory.EditItemScreen
 import com.palletflow.presentation.screens.inventory.AddItemScreen
 import com.palletflow.presentation.screens.warehouse.WarehouseListScreen
+import com.palletflow.presentation.screens.warehouse.AddWarehouseScreen
+import com.palletflow.presentation.screens.warehouse.WarehouseDetailScreen
 import com.palletflow.presentation.navigation.BottomNavTab
 
 @Composable
@@ -181,6 +183,25 @@ fun AppNavGraph(navController: NavHostController) {
                     navController.popBackStack()
                 },
                 onScanClick = { /* Handle scan */ }
+            )
+        }
+
+        composable(Screen.NewWarehouse.route) {
+            AddWarehouseScreen(
+                onBackClick = { navController.popBackStack() },
+                onSaveClick = {
+                    // Handle save
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.WarehouseDetail.route) {
+            WarehouseDetailScreen(
+                onBackClick = { navController.popBackStack() },
+                onEditClick = { /* Handle edit */ },
+                onAddLotClick = { /* Handle add lot */ },
+                onMoveItemsClick = { /* Handle move items */ }
             )
         }
     }
