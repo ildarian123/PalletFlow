@@ -1,5 +1,6 @@
 package com.palletflow.presentation.screens.inventory
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,10 +9,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,7 +43,8 @@ data class InventoryItem(
 @Composable
 fun InventoryScreen(
     onItemClick: (Int) -> Unit = {},
-    onAddClick: () -> Unit = {}
+    onAddClick: () -> Unit = {},
+    onWarehouseListClick: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var debouncedQuery by remember { mutableStateOf("") }
@@ -127,26 +126,51 @@ fun InventoryScreen(
 
             // 2. Warehouse Filter Chips
             item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(vertical = 8.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(warehouses.size) { index ->
-                        val isSelected = selectedWarehouseIndex == index
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedWarehouseIndex = index },
-                            label = { Text(warehouses[index]) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = SurfaceColor,
-                                labelColor = TextSecondary,
-                                selectedContainerColor = AccentColor,
-                                selectedLabelColor = DarkBackground
-                            ),
-                            border = null,
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Surface(
+                        modifier = Modifier
+                            .size(height = 32.dp, width = 48.dp)
+                            .clickable { onWarehouseListClick() },
+                        color = SurfaceColor,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, AccentColor)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Warehouse,
+                                contentDescription = "Warehouses",
+                                tint = AccentColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    LazyRow(
+                        contentPadding = PaddingValues(start = 8.dp, end = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        items(warehouses.size) { index ->
+                            val isSelected = selectedWarehouseIndex == index
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedWarehouseIndex = index },
+                                label = { Text(warehouses[index]) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = SurfaceColor,
+                                    labelColor = TextSecondary,
+                                    selectedContainerColor = AccentColor,
+                                    selectedLabelColor = DarkBackground
+                                ),
+                                border = null,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
                     }
                 }
             }
