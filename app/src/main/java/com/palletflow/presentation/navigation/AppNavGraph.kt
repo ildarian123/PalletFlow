@@ -18,6 +18,7 @@ import com.palletflow.presentation.screens.inventory.InventoryScreen
 import com.palletflow.presentation.screens.inventory.ItemDetailScreen
 import com.palletflow.presentation.screens.inventory.EditItemScreen
 import com.palletflow.presentation.screens.inventory.AddItemScreen
+import com.palletflow.presentation.screens.warehouse.WarehouseListScreen
 import com.palletflow.presentation.navigation.BottomNavTab
 
 @Composable
@@ -128,7 +129,22 @@ fun AppNavGraph(navController: NavHostController) {
                 onItemClick = { itemId ->
                     navController.navigate(Screen.ItemDetail.createRoute(itemId))
                 },
+                onWarehouseListClick = {
+                    navController.navigate(Screen.WarehouseList.route)
+                },
                 rootNavController = navController
+            )
+        }
+
+        composable(Screen.WarehouseList.route) {
+            WarehouseListScreen(
+                onBackClick = { navController.popBackStack() },
+                onWarehouseClick = { 
+                    navController.navigate(Screen.WarehouseDetail.createRoute(1))
+                },
+                onAddWarehouseClick = {
+                    navController.navigate(Screen.NewWarehouse.route)
+                }
             )
         }
 
