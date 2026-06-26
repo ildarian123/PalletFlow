@@ -44,7 +44,7 @@ data class InventoryItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryScreen(
-    onItemClick: () -> Unit = {},
+    onItemClick: (Int) -> Unit = {},
     onAddClick: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -153,7 +153,9 @@ fun InventoryScreen(
 
             // 5. Items List
             items(filteredItems) { item ->
-                InventoryItemCard(item, onItemClick)
+                InventoryItemCard(item) {
+                    onItemClick(1) // Placeholder ID
+                }
             }
         }
 

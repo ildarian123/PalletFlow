@@ -13,6 +13,7 @@ import com.palletflow.presentation.screens.auth.CreateProfileScreen
 import com.palletflow.presentation.screens.auth.SplashScreen
 import com.palletflow.presentation.screens.auth.SplashViewModel
 import com.palletflow.presentation.screens.dashboard.DashboardScreen
+import com.palletflow.presentation.screens.main.MainScreen
 import com.palletflow.presentation.screens.inventory.InventoryScreen
 import com.palletflow.presentation.screens.inventory.ItemDetailScreen
 import com.palletflow.presentation.screens.inventory.EditItemScreen
@@ -115,27 +116,19 @@ fun AppNavGraph(navController: NavHostController) {
         }
         
         composable(Screen.Dashboard.route) {
-            var currentTab by remember { mutableStateOf(BottomNavTab.Dashboard) }
-            
-            DashboardScreen(
-                onReceiveLotClick = { navController.navigate(Screen.ReceiveNewLot.route) },
-                onSellItemClick = { navController.navigate(Screen.Transactions.route) },
-                onMoveInventoryClick = { navController.navigate(Screen.Inventory.route) },
-                onAddExpenseClick = { navController.navigate(Screen.Transactions.route) },
-                onSeeAllActivityClick = { navController.navigate(Screen.Transactions.route) },
+            MainScreen(
                 onLogoutClick = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Dashboard.route) { inclusive = true }
                     }
                 },
-                onInventoryItemClick = { itemId ->
-                    navController.navigate(Screen.ItemDetail.createRoute(itemId))
-                },
                 onAddItemClick = {
                     navController.navigate(Screen.AddItem.route)
                 },
-                currentTab = currentTab,
-                onTabSelected = { currentTab = it }
+                onItemClick = { itemId ->
+                    navController.navigate(Screen.ItemDetail.createRoute(itemId))
+                },
+                rootNavController = navController
             )
         }
 
