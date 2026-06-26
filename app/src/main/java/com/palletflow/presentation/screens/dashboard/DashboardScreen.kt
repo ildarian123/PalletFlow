@@ -49,6 +49,7 @@ fun DashboardScreen(
     onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
+    onInventoryItemClick: (Int) -> Unit,
     currentTab: BottomNavTab,
     onTabSelected: (BottomNavTab) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
@@ -127,7 +128,9 @@ fun DashboardScreen(
                     )
                 }
                 BottomNavTab.Inventory -> {
-                    InventoryScreen()
+                    InventoryScreen(
+                        onItemClick = { onInventoryItemClick(1) } // Using 1 as placeholder ID
+                    )
                 }
                 else -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -357,6 +360,7 @@ fun DashboardScreenPreview() {
         onAddExpenseClick = {},
         onSeeAllActivityClick = {},
         onLogoutClick = {},
+        onInventoryItemClick = {},
         currentTab = BottomNavTab.Dashboard,
         onTabSelected = {}
     )
