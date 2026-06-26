@@ -15,6 +15,7 @@ import com.palletflow.presentation.screens.auth.SplashViewModel
 import com.palletflow.presentation.screens.dashboard.DashboardScreen
 import com.palletflow.presentation.screens.inventory.InventoryScreen
 import com.palletflow.presentation.screens.inventory.ItemDetailScreen
+import com.palletflow.presentation.screens.inventory.EditItemScreen
 import com.palletflow.presentation.navigation.BottomNavTab
 
 @Composable
@@ -137,9 +138,25 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.ItemDetail.route) {
             ItemDetailScreen(
                 onBackClick = { navController.popBackStack() },
-                onEditClick = { /* Handle edit */ },
+                onEditClick = { 
+                    navController.navigate(Screen.EditItem.createRoute(1))
+                },
                 onSellClick = { /* Handle sell */ },
                 onLotClick = { /* Handle lot click */ }
+            )
+        }
+
+        composable(Screen.EditItem.route) {
+            EditItemScreen(
+                onBackClick = { navController.popBackStack() },
+                onSaveClick = { 
+                    // Handle save
+                    navController.popBackStack()
+                },
+                onDeleteClick = {
+                    // Handle delete
+                    navController.popBackStack()
+                }
             )
         }
     }
