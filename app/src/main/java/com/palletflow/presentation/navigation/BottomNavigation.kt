@@ -6,11 +6,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 
 enum class BottomNavTab(val route: String, val title: String, val icon: ImageVector) {
     Dashboard(Screen.Dashboard.route, "Dashboard", Icons.Default.Dashboard),
     Inventory(Screen.Inventory.route, "Inventory", Icons.Default.Inventory),
-    Transactions(Screen.Transactions.route, "Transactions", Icons.Default.Receipt),
+    Transactions(Screen.Transactions.route, "Sales", Icons.Default.Receipt),
     Reports(Screen.Reports.route, "Reports", Icons.Default.BarChart),
     More(Screen.Settings.route, "More", Icons.Default.MoreHoriz)
 }
@@ -29,6 +31,7 @@ fun BottomNavigationBar(
             NavigationBarItem(
                 selected = selected,
                 onClick = { onTabSelected(tab) },
+                alwaysShowLabel = true,
                 icon = {
                     Icon(
                         imageVector = tab.icon,
@@ -39,7 +42,10 @@ fun BottomNavigationBar(
                 label = {
                     Text(
                         text = tab.title,
-                        color = if (selected) Color(0xFF00C2A0) else Color(0xFFA1A1A6)
+                        color = if (selected) Color(0xFF00C2A0) else Color(0xFFA1A1A6),
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
