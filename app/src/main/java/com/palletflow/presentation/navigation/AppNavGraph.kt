@@ -23,6 +23,7 @@ import com.palletflow.presentation.screens.warehouse.AddWarehouseScreen
 import com.palletflow.presentation.screens.warehouse.WarehouseDetailScreen
 import com.palletflow.presentation.screens.warehouse.EditWarehouseScreen
 import com.palletflow.presentation.screens.lot.ReceiveLotScreen
+import com.palletflow.presentation.screens.sell.SellScreen
 import com.palletflow.presentation.navigation.BottomNavTab
 
 @Composable
@@ -226,6 +227,14 @@ fun AppNavGraph(navController: NavHostController) {
                 onCompleteClick = { navController.popBackStack() },
                 onAddNewSupplierClick = { /* Navigate to Add Supplier */ },
                 onCreateNewItemClick = { navController.navigate(Screen.AddItem.route) }
+            )
+        }
+
+        composable(Screen.NewSale.route) {
+            SellScreen(
+                onBackClick = { navController.popBackStack() },
+                onSaveDraftClick = { navController.popBackStack() },
+                onCompleteClick = { navController.popBackStack() }
             )
         }
     }
