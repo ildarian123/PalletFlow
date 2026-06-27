@@ -113,7 +113,7 @@ fun ReceiveLotScreen(
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                contentPadding = PaddingValues(bottom = 100.dp)
             ) {
                 // Header Section
                 item {
@@ -377,8 +377,8 @@ private fun LotItemRow(item: LotItemData, onRemove: () -> Unit) {
                     Surface(color = PlaceholderColor, shape = RoundedCornerShape(4.dp)) {
                         Text(item.category, color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
                     }
-                    Surface(color = item.conditionColor, shape = RoundedCornerShape(4.dp)) {
-                        Text(item.condition, color = DarkBackground, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                    Surface(color = item.conditionColor.copy(alpha = 0.2f), shape = RoundedCornerShape(4.dp)) {
+                        Text(item.condition, color = item.conditionColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
                     }
                 }
             }
@@ -405,10 +405,10 @@ private fun ExpenseRow(expense: ExpenseData, onRemove: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape).background(expense.color),
+                modifier = Modifier.size(40.dp).clip(CircleShape).background(expense.color.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(expense.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(expense.icon, contentDescription = null, tint = expense.color, modifier = Modifier.size(20.dp))
             }
             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(expense.type, color = TextPrimary, fontWeight = FontWeight.Bold)
@@ -460,18 +460,20 @@ fun SupplierSelectorSheet(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var debouncedQuery by remember { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(searchQuery) {
-        delay(1000)
+        delay(300)
         debouncedQuery = searchQuery
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceColor,
         dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
     ) {
-        Column(modifier = Modifier.padding(16.dp).padding(bottom = 32.dp)) {
+        Column(modifier = Modifier.fillMaxHeight(0.8f).padding(16.dp)) {
             Text("Select Supplier", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
@@ -493,29 +495,33 @@ fun SupplierSelectorSheet(
             val filteredSuppliers = remember(debouncedQuery) {
                 allSuppliers.filter { it.contains(debouncedQuery, ignoreCase = true) }
             }
-            filteredSuppliers.forEach { supplier ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onSupplierSelected(supplier) },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(filteredSuppliers) { supplier ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onSupplierSelected(supplier) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
                     ) {
-                        Icon(Icons.Default.Business, contentDescription = null, tint = AccentTeal)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(supplier, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Business, contentDescription = null, tint = AccentTeal)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(supplier, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
+                        }
                     }
                 }
             }
+            
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = PlaceholderColor)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(
                 onClick = onAddNewSupplierClick,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentTeal),
                 border = BorderStroke(1.dp, AccentTeal),
                 shape = RoundedCornerShape(12.dp)
@@ -532,12 +538,15 @@ fun WarehouseSelectorSheet(
     onDismiss: () -> Unit,
     onWarehouseSelected: (String) -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceColor,
         dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
     ) {
-        Column(modifier = Modifier.padding(16.dp).padding(bottom = 32.dp)) {
+        Column(modifier = Modifier.fillMaxHeight(0.6f).padding(16.dp)) {
             Text("Select Warehouse", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
             val warehouses = listOf(
@@ -545,25 +554,28 @@ fun WarehouseSelectorSheet(
                 "Storage Unit 2" to "Chicago, IL",
                 "Retail Location" to "Evanston, IL"
             )
-            warehouses.forEach { (name, location) ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onWarehouseSelected(name) },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(warehouses) { (name, location) ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onWarehouseSelected(name) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
                     ) {
-                        Icon(Icons.Default.Warehouse, contentDescription = null, tint = AccentTeal)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(name, color = TextPrimary, fontWeight = FontWeight.Bold)
-                            Text(location, color = TextSecondary, fontSize = 12.sp)
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warehouse, contentDescription = null, tint = AccentTeal)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(name, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                Text(location, color = TextSecondary, fontSize = 12.sp)
+                            }
                         }
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp).navigationBarsPadding())
         }
     }
 }
@@ -577,18 +589,20 @@ fun ItemSelectorSheet(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var debouncedQuery by remember { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(searchQuery) {
-        delay(1000)
+        delay(300)
         debouncedQuery = searchQuery
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceColor,
         dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
     ) {
-        Column(modifier = Modifier.padding(16.dp).padding(bottom = 32.dp)) {
+        Column(modifier = Modifier.fillMaxHeight(0.9f).padding(16.dp)) {
             Text("Add Item", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
@@ -617,10 +631,9 @@ fun ItemSelectorSheet(
                 allItems.filter { it.first.contains(debouncedQuery, ignoreCase = true) }
             }
 
-            // Map to track quantity per item name
             val quantities = remember { mutableStateMapOf<String, TextFieldValue>() }
 
-            LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+            LazyColumn(modifier = Modifier.weight(1f)) {
                 items(filteredItems) { (name, cat) ->
                     val textFieldValue = quantities[name] ?: TextFieldValue("")
                     Card(
@@ -649,7 +662,7 @@ fun ItemSelectorSheet(
                                     },
                                     modifier = Modifier
                                         .width(80.dp)
-                                        .height(60.dp)
+                                        .height(64.dp)
                                         .onFocusChanged { focusState ->
                                             if (focusState.isFocused) {
                                                 val text = quantities[name]?.text ?: ""
@@ -660,12 +673,7 @@ fun ItemSelectorSheet(
                                             }
                                         },
                                     placeholder = {
-                                        Text(
-                                            "0",
-                                            color = TextSecondary,
-                                            modifier = Modifier.fillMaxWidth(),
-                                            textAlign = TextAlign.Center
-                                        )
+                                        Text("0", color = TextSecondary, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
                                     },
                                     textStyle = LocalTextStyle.current.copy(
                                         textAlign = TextAlign.Center,
@@ -702,7 +710,7 @@ fun ItemSelectorSheet(
             Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = onAddSelectedItems,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -721,13 +729,15 @@ fun AddExpenseSheet(
     var selectedType by remember { mutableIntStateOf(0) }
     var amount by remember { mutableStateOf(TextFieldValue("")) }
     var notes by remember { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceColor,
         dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
     ) {
-        Column(modifier = Modifier.padding(16.dp).padding(bottom = 32.dp)) {
+        Column(modifier = Modifier.fillMaxHeight(0.6f).padding(16.dp)) {
             Text("Add Expense", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -795,10 +805,10 @@ fun AddExpenseSheet(
                 )
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(1f))
             Button(
                 onClick = onAddExpense,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
                 shape = RoundedCornerShape(12.dp)
             ) {
