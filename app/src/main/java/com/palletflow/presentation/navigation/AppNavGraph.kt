@@ -25,6 +25,7 @@ import com.palletflow.presentation.screens.warehouse.EditWarehouseScreen
 import com.palletflow.presentation.screens.lot.ReceiveLotScreen
 import com.palletflow.presentation.screens.sell.SellScreen
 import com.palletflow.presentation.screens.move.MoveInventoryScreen
+import com.palletflow.presentation.screens.transactions.AddExpenseScreen
 import com.palletflow.presentation.navigation.BottomNavTab
 
 @Composable
@@ -243,6 +244,14 @@ fun AppNavGraph(navController: NavHostController) {
             MoveInventoryScreen(
                 onBackClick = { navController.popBackStack() },
                 onConfirmClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.AddExpense.route) {
+            AddExpenseScreen(
+                onBackClick = { navController.popBackStack() },
+                onSaveClick = { navController.popBackStack() },
+                onAttachReceiptClick = { /* Handle receipt */ }
             )
         }
     }
