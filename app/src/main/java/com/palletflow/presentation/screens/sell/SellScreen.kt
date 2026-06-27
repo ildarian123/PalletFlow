@@ -126,7 +126,7 @@ fun SellScreen(
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                contentPadding = PaddingValues(bottom = 100.dp)
             ) {
                 // Header Section
                 item {
@@ -414,8 +414,8 @@ private fun SaleItemRow(item: SaleItemData, onRemove: () -> Unit) {
                 Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(item.lotRef, color = TextSecondary, fontSize = 11.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(color = item.conditionColor, shape = RoundedCornerShape(4.dp)) {
-                        Text(item.condition, color = DarkBackground, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                    Surface(color = item.conditionColor.copy(alpha = 0.2f), shape = RoundedCornerShape(4.dp)) {
+                        Text(item.condition, color = item.conditionColor, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
                     }
                     Text("Available: ${item.available}", color = TextSecondary, fontSize = 11.sp)
                 }
@@ -477,6 +477,8 @@ private fun EmptyState(icon: ImageVector, title: String, subtitle: String) {
 private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelectedItems: () -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
     var debouncedQuery by remember { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    
     val items = remember {
         listOf(
             "Nike Air Max 90" to ("Lot #1042" to 5),
@@ -494,10 +496,15 @@ private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelectedItems: () -> U
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceColor,
         dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
     ) {
-        Column(modifier = Modifier.padding(16.dp).padding(bottom = 32.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight(0.9f)
+                .padding(16.dp)
+        ) {
             Text("Add Item", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
@@ -515,7 +522,7 @@ private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelectedItems: () -> U
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
-            LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+            LazyColumn(modifier = Modifier.weight(1f)) {
                 items(items.filter { it.first.contains(debouncedQuery, ignoreCase = true) }) { (name, info) ->
                     var price by remember { mutableStateOf("") }
                     var qty by remember { mutableStateOf(TextFieldValue("")) }
@@ -567,7 +574,7 @@ private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelectedItems: () -> U
             Button(
                 onClick = onAddSelectedItems,
                 enabled = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -584,13 +591,19 @@ private fun AddExpenseSheet(onDismiss: () -> Unit, onAddExpense: () -> Unit) {
     var amount by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     val types = listOf("Shipping", "Platform Fee", "Packaging", "Other")
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceColor,
         dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
     ) {
-        Column(modifier = Modifier.padding(16.dp).padding(bottom = 32.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight(0.6f)
+                .padding(16.dp)
+        ) {
             Text("Add Expense", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
             
@@ -634,11 +647,12 @@ private fun AddExpenseSheet(onDismiss: () -> Unit, onAddExpense: () -> Unit) {
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentTeal, unfocusedBorderColor = PlaceholderColor, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.weight(1f))
+            
             Button(
                 onClick = onAddExpense,
                 enabled = amount.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentTeal, disabledContainerColor = PlaceholderColor),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -653,13 +667,19 @@ private fun AddExpenseSheet(onDismiss: () -> Unit, onAddExpense: () -> Unit) {
 private fun CustomerSelectorSheet(onDismiss: () -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
     val customers = listOf("John Smith", "Maria Garcia", "Bob Johnson")
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = SurfaceColor,
         dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
     ) {
-        Column(modifier = Modifier.padding(16.dp).padding(bottom = 32.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight(0.8f)
+                .padding(16.dp)
+        ) {
             Text("Add Customer", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Text("Optional — for record keeping", color = TextSecondary, fontSize = 12.sp)
             Spacer(modifier = Modifier.height(16.dp))
@@ -673,19 +693,21 @@ private fun CustomerSelectorSheet(onDismiss: () -> Unit) {
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentTeal, unfocusedBorderColor = PlaceholderColor, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
             )
             Spacer(modifier = Modifier.height(16.dp))
-            customers.forEach { customer ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onDismiss() },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
-                ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(SurfaceColor), contentAlignment = Alignment.Center) {
-                            Text(customer.take(1), color = AccentTeal, fontWeight = FontWeight.Bold)
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(customers) { customer ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onDismiss() },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(SurfaceColor), contentAlignment = Alignment.Center) {
+                                Text(customer.take(1), color = AccentTeal, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(customer, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(customer, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
                     }
                 }
             }
@@ -694,7 +716,7 @@ private fun CustomerSelectorSheet(onDismiss: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
                 border = BorderStroke(1.dp, TextSecondary),
                 shape = RoundedCornerShape(12.dp)
