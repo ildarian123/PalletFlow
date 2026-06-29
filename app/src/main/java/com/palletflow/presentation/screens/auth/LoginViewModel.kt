@@ -51,31 +51,20 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             
-            val user = userDao.getUserByEmail(state.email)
+            val authenticatedUser = userDao.getUserByCredentials(state.email, hashedPassword)
             
-            if (user == null) {
+            if (authenticatedUser != null) {
+                saveCredentials(state.email, hashedPassword, authenticatedUser.id)
+                _uiState.update { it.copy(isLoading = false) }
+                _loginEvent.trySend(true)
+            } else {
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
-                        emailError = "User not found. Please register first."
+                        emailError = "Invalid email or password"
                     )
                 }
                 _loginEvent.trySend(false)
-            } else {
-                val authenticatedUser = userDao.getUserByCredentials(state.email, hashedPassword)
-                if (authenticatedUser != null) {
-                    saveCredentials(hashedPassword)
-                    _uiState.update { it.copy(isLoading = false) }
-                    _loginEvent.trySend(true)
-                } else {
-                    _uiState.update { 
-                        it.copy(
-                            isLoading = false,
-                            passwordError = "Incorrect password"
-                        )
-                    }
-                    _loginEvent.trySend(false)
-                }
             }
         }
     }
@@ -100,9 +89,8 @@ class LoginViewModel @Inject constructor(
         return isValid
     }
 
-    private fun saveCredentials(hashedPassword: String) {
-        val state = _uiState.value
-        authPreferences.saveCredentials(state.email, hashedPassword)
+    private fun saveCredentials(email: String, hashedPassword: String, userId: String) {
+        authPreferences.saveCredentials(email, hashedPassword, userId)
     }
 }
 

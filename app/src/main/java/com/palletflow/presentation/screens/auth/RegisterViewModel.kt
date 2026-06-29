@@ -1,5 +1,6 @@
 package com.palletflow.presentation.screens.auth
 
+import android.util.Log
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -71,11 +72,12 @@ class RegisterViewModel @Inject constructor(
                 )
 
                 userDao.insertUser(newUser)
-                saveCredentials(hashedPassword)
+                saveCredentials(state.email, hashedPassword, newUser.id)
                 
                 _uiState.update { it.copy(isLoading = false) }
                 _registrationEvent.trySend(true)
             } catch (e: Exception) {
+                Log.e("RegisterViewModel", "Registration failed", e)
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
@@ -123,9 +125,8 @@ class RegisterViewModel @Inject constructor(
         return isValid
     }
 
-    private fun saveCredentials(hashedPassword: String) {
-        val state = _uiState.value
-        authPreferences.saveCredentials(state.email, hashedPassword)
+    private fun saveCredentials(email: String, hashedPassword: String, userId: String) {
+        authPreferences.saveCredentials(email, hashedPassword, userId)
     }
 }
 

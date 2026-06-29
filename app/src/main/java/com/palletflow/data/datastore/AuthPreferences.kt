@@ -18,10 +18,11 @@ class AuthPreferences(context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    fun saveCredentials(email: String, password: String) {
+    fun saveCredentials(email: String, passwordHash: String, userId: String) {
         sharedPreferences.edit()
             .putString("email", email)
-            .putString("password", password)
+            .putString("password", passwordHash)
+            .putString("user_id", userId)
             .putString("last_email", email) // Save as last successful email
             .apply()
     }
@@ -30,18 +31,22 @@ class AuthPreferences(context: Context) {
 
     fun getPassword(): String? = sharedPreferences.getString("password", null)
     
+    fun getUserId(): String? = sharedPreferences.getString("user_id", null)
+    
     fun getLastEmail(): String? = sharedPreferences.getString("last_email", null)
 
     fun isLoggedIn(): Boolean {
         val email = getEmail()
         val password = getPassword()
-        return !email.isNullOrEmpty() && !password.isNullOrEmpty()
+        val userId = getUserId()
+        return !email.isNullOrEmpty() && !password.isNullOrEmpty() && !userId.isNullOrEmpty()
     }
 
     fun clearCredentials() {
         sharedPreferences.edit()
             .remove("email")
             .remove("password")
+            .remove("user_id")
             .apply()
     }
 }

@@ -61,7 +61,7 @@ fun AppNavGraph(navController: NavHostController) {
             val viewModel: LoginViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
 
-            LaunchedEffect(viewModel.loginEvent) {
+            LaunchedEffect(Unit) {
                 viewModel.loginEvent.collect { success ->
                     if (success) {
                         navController.navigate(Screen.Dashboard.route) {
@@ -92,7 +92,7 @@ fun AppNavGraph(navController: NavHostController) {
             val viewModel: RegisterViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsState()
 
-            LaunchedEffect(viewModel.registrationEvent) {
+            LaunchedEffect(Unit) {
                 viewModel.registrationEvent.collect { success ->
                     if (success) {
                         navController.navigate(Screen.Dashboard.route) {
@@ -144,6 +144,7 @@ fun AppNavGraph(navController: NavHostController) {
                     navController.navigate(Screen.AddItem.route)
                 },
                 onItemClick = { itemId ->
+                    // TODO: Replace hardcoded ID with real itemId when data is connected
                     navController.navigate(Screen.ItemDetail.createRoute(itemId))
                 },
                 onWarehouseListClick = {
@@ -157,6 +158,7 @@ fun AppNavGraph(navController: NavHostController) {
             WarehouseListScreen(
                 onBackClick = { navController.popBackStack() },
                 onWarehouseClick = { 
+                    // TODO: Replace hardcoded ID with real warehouseId when data is connected
                     navController.navigate(Screen.WarehouseDetail.createRoute(1))
                 },
                 onAddWarehouseClick = {
@@ -169,6 +171,7 @@ fun AppNavGraph(navController: NavHostController) {
             ItemDetailScreen(
                 onBackClick = { navController.popBackStack() },
                 onEditClick = { 
+                    // TODO: Replace hardcoded ID with real itemId when data is connected
                     navController.navigate(Screen.EditItem.createRoute(1))
                 },
                 onSellClick = { /* Handle sell */ },
@@ -215,6 +218,7 @@ fun AppNavGraph(navController: NavHostController) {
             WarehouseDetailScreen(
                 onBackClick = { navController.popBackStack() },
                 onEditClick = { 
+                    // TODO: Replace hardcoded ID with real warehouseId when data is connected
                     navController.navigate(Screen.EditWarehouse.createRoute(1))
                 },
                 onAddLotClick = { /* Handle add lot */ },

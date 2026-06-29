@@ -175,6 +175,7 @@ fun RegisterScreen(
                 enabled = !state.isLoading
             ) {
                 if (state.isLoading) {
+                    // TODO: Handle back navigation prevention while loading
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = Color.White,
@@ -191,6 +192,8 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            /* 
+            TODO: Hide Google Sign In until implemented to avoid user confusion
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -244,6 +247,7 @@ fun RegisterScreen(
                     )
                 }
             }
+            */
 
             Spacer(modifier = Modifier.height(32.dp))
 
