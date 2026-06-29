@@ -35,7 +35,6 @@ private val ErrorColor = Color(0xFFFF453A)
 @Composable
 fun RegisterScreen(
     state: RegisterUiState,
-    onFullNameChange: (String) -> Unit,
     onBusinessNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
@@ -117,16 +116,6 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             // Form Fields
-            RegisterTextField(
-                value = state.fullName,
-                onValueChange = onFullNameChange,
-                label = "Full Name",
-                keyboardType = KeyboardType.Text,
-                error = state.fullNameError
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             RegisterTextField(
                 value = state.businessName,
                 onValueChange = onBusinessNameChange,
@@ -335,7 +324,6 @@ fun RegisterTextField(
 fun RegisterScreenPreview() {
     RegisterScreen(
         state = RegisterUiState(),
-        onFullNameChange = {},
         onBusinessNameChange = {},
         onEmailChange = {},
         onPasswordChange = {},

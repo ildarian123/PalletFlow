@@ -1,14 +1,18 @@
 package com.palletflow.presentation.screens.auth
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.local.dao.UserDao
 import com.palletflow.data.local.entity.UserProfile
+import com.palletflow.data.util.PasswordHasher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -20,12 +24,8 @@ class RegisterViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val _registrationEvent = MutableStateFlow<Boolean?>(null)
-    val registrationEvent = _registrationEvent.asStateFlow()
-
-    fun onFullNameChange(name: String) {
-        _uiState.update { it.copy(fullName = name, fullNameError = null) }
-    }
+    private val _registrationEvent = Channel<Boolean>(Channel.BUFFERED)
+    val registrationEvent = _registrationEvent.receiveAsFlow()
 
     fun onEmailChange(email: String) {
         _uiState.update { it.copy(email = email, emailError = null) }
@@ -58,21 +58,23 @@ class RegisterViewModel @Inject constructor(
                             emailError = "Email is already registered"
                         )
                     }
-                    _registrationEvent.value = false
+                    _registrationEvent.trySend(false)
                     return@launch
                 }
 
+                val hashedPassword = PasswordHasher.hash(state.password)
+
                 val newUser = UserProfile(
                     email = state.email,
-                    passwordHash = state.password, // Should be hashed in a real app
+                    passwordHash = hashedPassword,
                     businessName = state.businessName
                 )
 
                 userDao.insertUser(newUser)
-                saveCredentials()
+                saveCredentials(hashedPassword)
                 
                 _uiState.update { it.copy(isLoading = false) }
-                _registrationEvent.value = true
+                _registrationEvent.trySend(true)
             } catch (e: Exception) {
                 _uiState.update { 
                     it.copy(
@@ -80,23 +82,14 @@ class RegisterViewModel @Inject constructor(
                         emailError = "An error occurred during registration. Please try again."
                     )
                 }
-                _registrationEvent.value = false
+                _registrationEvent.trySend(false)
             }
         }
-    }
-
-    fun resetRegistrationEvent() {
-        _registrationEvent.value = null
     }
 
     private fun validate(): Boolean {
         val state = _uiState.value
         var isValid = true
-
-        if (state.fullName.isBlank()) {
-            _uiState.update { it.copy(fullNameError = "Full Name cannot be empty") }
-            isValid = false
-        }
 
         if (state.businessName.isBlank()) {
             _uiState.update { it.copy(businessNameError = "Business Name cannot be empty") }
@@ -106,10 +99,16 @@ class RegisterViewModel @Inject constructor(
         if (state.email.isBlank()) {
             _uiState.update { it.copy(emailError = "Email cannot be empty") }
             isValid = false
+        } else if (!Patterns.EMAIL_ADDRESS.matcher(state.email).matches()) {
+            _uiState.update { it.copy(emailError = "Invalid email format") }
+            isValid = false
         }
 
         if (state.password.isBlank()) {
             _uiState.update { it.copy(passwordError = "Password cannot be empty") }
+            isValid = false
+        } else if (state.password.length < 6) {
+            _uiState.update { it.copy(passwordError = "Password must be at least 6 characters") }
             isValid = false
         }
 
@@ -124,15 +123,13 @@ class RegisterViewModel @Inject constructor(
         return isValid
     }
 
-    private fun saveCredentials() {
+    private fun saveCredentials(hashedPassword: String) {
         val state = _uiState.value
-        authPreferences.saveCredentials(state.email, state.password)
+        authPreferences.saveCredentials(state.email, hashedPassword)
     }
 }
 
 data class RegisterUiState(
-    val fullName: String = "",
-    val fullNameError: String? = null,
     val businessName: String = "",
     val businessNameError: String? = null,
     val email: String = "",

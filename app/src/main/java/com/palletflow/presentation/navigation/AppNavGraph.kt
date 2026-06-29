@@ -60,14 +60,14 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.Login.route) {
             val viewModel: LoginViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
-            val loginEvent by viewModel.loginEvent.collectAsState()
 
-            LaunchedEffect(loginEvent) {
-                if (loginEvent == true) {
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+            LaunchedEffect(viewModel.loginEvent) {
+                viewModel.loginEvent.collect { success ->
+                    if (success) {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
                     }
-                    viewModel.resetLoginEvent()
                 }
             }
 
@@ -91,20 +91,19 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.Register.route) {
             val viewModel: RegisterViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsState()
-            val registrationEvent by viewModel.registrationEvent.collectAsState()
 
-            LaunchedEffect(registrationEvent) {
-                if (registrationEvent == true) {
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.Register.route) { inclusive = true }
+            LaunchedEffect(viewModel.registrationEvent) {
+                viewModel.registrationEvent.collect { success ->
+                    if (success) {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Register.route) { inclusive = true }
+                        }
                     }
-                    viewModel.resetRegistrationEvent()
                 }
             }
 
             RegisterScreen(
                 state = state,
-                onFullNameChange = viewModel::onFullNameChange,
                 onBusinessNameChange = viewModel::onBusinessNameChange,
                 onEmailChange = viewModel::onEmailChange,
                 onPasswordChange = viewModel::onPasswordChange,
