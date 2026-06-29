@@ -60,6 +60,16 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.Login.route) {
             val viewModel: LoginViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
+            val loginEvent by viewModel.loginEvent.collectAsState()
+
+            LaunchedEffect(loginEvent) {
+                if (loginEvent == true) {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                    viewModel.resetLoginEvent()
+                }
+            }
 
             LoginScreen(
                 emailValue = uiState.email,
@@ -69,12 +79,7 @@ fun AppNavGraph(navController: NavHostController) {
                 onEmailChange = viewModel::onEmailChange,
                 onPasswordChange = viewModel::onPasswordChange,
                 onLoginClick = {
-                    if (viewModel.validate()) {
-                        viewModel.saveCredentials()
-                        navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(Screen.Login.route) { inclusive = true }
-                        }
-                    }
+                    viewModel.login()
                 },
                 onSignUpClick = {
                     navController.navigate(Screen.Register.route)
@@ -86,6 +91,16 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.Register.route) {
             val viewModel: RegisterViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsState()
+            val registrationEvent by viewModel.registrationEvent.collectAsState()
+
+            LaunchedEffect(registrationEvent) {
+                if (registrationEvent == true) {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                    viewModel.resetRegistrationEvent()
+                }
+            }
 
             RegisterScreen(
                 state = state,
@@ -97,12 +112,7 @@ fun AppNavGraph(navController: NavHostController) {
                     navController.navigateUp()
                 },
                 onRegisterClick = {
-                    if (viewModel.validate()) {
-                        viewModel.saveCredentials()
-                        navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(Screen.Register.route) { inclusive = true }
-                        }
-                    }
+                    viewModel.register()
                 },
                 onGoogleClick = { /* Do nothing for now */ },
                 onSignInClick = {

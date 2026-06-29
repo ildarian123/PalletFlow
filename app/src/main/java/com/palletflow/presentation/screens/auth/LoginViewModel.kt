@@ -1,19 +1,26 @@
 package com.palletflow.presentation.screens.auth
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.palletflow.data.datastore.AuthPreferences
+import com.palletflow.data.local.dao.UserDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val authPreferences: AuthPreferences
+    private val authPreferences: AuthPreferences,
+    private val userDao: UserDao
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _loginEvent = MutableStateFlow<Boolean?>(null)
+    val loginEvent = _loginEvent.asStateFlow()
 
     init {
         // Pre-fill email with the last successful login email
@@ -31,7 +38,51 @@ class LoginViewModel @Inject constructor(
         _uiState.update { it.copy(password = password, passwordError = null) }
     }
 
-    fun validate(): Boolean {
+    fun login() {
+        if (!validate()) return
+
+        val email = _uiState.value.email
+        val password = _uiState.value.password
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            
+            // Check if user exists (ignoring password hash for now as requested - just checking existence)
+            val user = userDao.getUserByEmail(email)
+            
+            if (user == null) {
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false,
+                        emailError = "User not found. Please register first."
+                    )
+                }
+                _loginEvent.value = false
+            } else {
+                // If user exists, check credentials
+                val authenticatedUser = userDao.getUserByCredentials(email, password) // Note: Should use hash in real app
+                if (authenticatedUser != null) {
+                    saveCredentials()
+                    _uiState.update { it.copy(isLoading = false) }
+                    _loginEvent.value = true
+                } else {
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false,
+                            passwordError = "Incorrect password"
+                        )
+                    }
+                    _loginEvent.value = false
+                }
+            }
+        }
+    }
+
+    fun resetLoginEvent() {
+        _loginEvent.value = null
+    }
+
+    private fun validate(): Boolean {
         val email = _uiState.value.email
         val password = _uiState.value.password
         
@@ -50,7 +101,7 @@ class LoginViewModel @Inject constructor(
         return isValid
     }
 
-    fun saveCredentials() {
+    private fun saveCredentials() {
         val state = _uiState.value
         authPreferences.saveCredentials(state.email, state.password)
     }
