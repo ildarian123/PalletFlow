@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 
 private val DarkBackground = Color(0xFF121212)
@@ -30,18 +31,28 @@ private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val ImagePlaceholderColor = Color(0xFF2C2C2E)
 
-data class InventoryItem(
-    val name: String,
-    val lotNumber: String,
-    val warehouse: String,
-    val quantity: String,
-    val price: String,
-    val profit: String
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryScreen(
+    onItemClick: (Int) -> Unit = {},
+    onAddClick: () -> Unit = {},
+    onWarehouseListClick: () -> Unit = {},
+    viewModel: InventoryViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    InventoryScreenContent(
+        uiState = uiState,
+        onItemClick = onItemClick,
+        onAddClick = onAddClick,
+        onWarehouseListClick = onWarehouseListClick
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun InventoryScreenContent(
+    uiState: InventoryUiState,
     onItemClick: (Int) -> Unit = {},
     onAddClick: () -> Unit = {},
     onWarehouseListClick: () -> Unit = {}
@@ -50,18 +61,7 @@ fun InventoryScreen(
     var debouncedQuery by remember { mutableStateOf("") }
     var selectedWarehouseIndex by remember { mutableIntStateOf(0) }
     val focusManager = LocalFocusManager.current
-    val warehouses = listOf("All Warehouses", "Warehouse 1", "Warehouse 2", "Warehouse 3")
-
-    val allItems = remember {
-        listOf(
-            InventoryItem("Wireless Headphones Z1", "#1042", "Warehouse 1", "x24", "$12.50", "+ $8.00"),
-            InventoryItem("Mechanical Keyboard", "#1038", "Warehouse 1", "x12", "$8.00", "+ $5.50"),
-            InventoryItem("Gaming Mouse", "#1045", "Warehouse 2", "x15", "$45.00", "+ $12.00"),
-            InventoryItem("USB-C Hub", "#1050", "Warehouse 1", "x30", "$25.00", "+ $10.00"),
-            InventoryItem("Monitor Stand", "#1062", "Warehouse 3", "x8", "$35.00", "+ $15.00"),
-            InventoryItem("LED Desk Lamp", "#1075", "Warehouse 2", "x20", "$18.00", "+ $7.50")
-        )
-    }
+    val warehouses = uiState.warehouses
 
     // Debounce logic
     LaunchedEffect(searchQuery) {
@@ -69,11 +69,11 @@ fun InventoryScreen(
         debouncedQuery = searchQuery
     }
 
-    val filteredItems = remember(debouncedQuery, selectedWarehouseIndex) {
-        allItems.filter { item ->
+    val filteredItems = remember(debouncedQuery, selectedWarehouseIndex, uiState.items) {
+        uiState.items.filter { item ->
             val matchesQuery = item.name.contains(debouncedQuery, ignoreCase = true)
             val matchesWarehouse = if (selectedWarehouseIndex == 0) true 
-                                   else item.warehouse == warehouses[selectedWarehouseIndex]
+                                   else item.warehouse == warehouses.getOrNull(selectedWarehouseIndex)
             matchesQuery && matchesWarehouse
         }
     }
@@ -175,10 +175,28 @@ fun InventoryScreen(
                 }
             }
 
+            // 3. Loading State
+            if (uiState.isLoading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = AccentColor)
+                    }
+                }
+            }
+
+            // 4. Empty State
+            if (!uiState.isLoading && filteredItems.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Text("No items found", color = TextSecondary)
+                    }
+                }
+            }
+
             // 5. Items List
             items(filteredItems) { item ->
                 InventoryItemCard(item) {
-                    onItemClick(1) // Placeholder ID
+                    onItemClick(item.id)
                 }
             }
         }
@@ -280,5 +298,13 @@ fun InventoryItemCard(item: InventoryItem, onClick: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun InventoryScreenPreview() {
-    InventoryScreen()
+    InventoryScreenContent(
+        uiState = InventoryUiState(
+            items = listOf(
+                InventoryItem(1, "Wireless Headphones Z1", "#1042", "Warehouse 1", "x24", "$12.50", "+ $8.00"),
+                InventoryItem(2, "Mechanical Keyboard", "#1038", "Warehouse 1", "x12", "$8.00", "+ $5.50")
+            ),
+            warehouses = listOf("All Warehouses", "Warehouse 1")
+        )
+    )
 }

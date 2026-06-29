@@ -12,4 +12,18 @@ class InventoryViewModel @Inject constructor() : ViewModel() {
     val uiState = _uiState.asStateFlow()
 }
 
-data class InventoryUiState(val items: List<String> = emptyList())
+data class InventoryUiState(
+    val items: List<InventoryItem> = emptyList(),
+    val warehouses: List<String> = listOf("All Warehouses"),
+    val isLoading: Boolean = false
+)
+
+data class InventoryItem(
+    val id: Int,
+    val name: String,
+    val lotNumber: String,
+    val warehouse: String,
+    val quantity: String,
+    val price: String,
+    val profit: String
+)
