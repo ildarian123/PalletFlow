@@ -51,8 +51,42 @@ fun DashboardScreen(
     onTabSelected: (BottomNavTab) -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
+    
+    DashboardScreenContent(
+        uiState = uiState,
+        onReceiveLotClick = onReceiveLotClick,
+        onSellItemClick = onSellItemClick,
+        onMoveInventoryClick = onMoveInventoryClick,
+        onAddExpenseClick = onAddExpenseClick,
+        onSeeAllActivityClick = onSeeAllActivityClick,
+        onLogoutClick = {
+            viewModel.logout()
+            onLogoutClick()
+        },
+        onInventoryItemClick = onInventoryItemClick,
+        onAddItemClick = onAddItemClick,
+        currentTab = currentTab,
+        onTabSelected = onTabSelected
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DashboardScreenContent(
+    uiState: DashboardUiState,
+    onReceiveLotClick: () -> Unit,
+    onSellItemClick: () -> Unit,
+    onMoveInventoryClick: () -> Unit,
+    onAddExpenseClick: () -> Unit,
+    onSeeAllActivityClick: () -> Unit,
+    onLogoutClick: () -> Unit,
+    onInventoryItemClick: (Int) -> Unit,
+    onAddItemClick: () -> Unit,
+    currentTab: BottomNavTab,
+    onTabSelected: (BottomNavTab) -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = DarkBackground,
@@ -92,7 +126,6 @@ fun DashboardScreen(
                                 text = { Text("Logout", color = TextPrimary) },
                                 onClick = {
                                     menuExpanded = false
-                                    viewModel.logout()
                                     onLogoutClick()
                                 },
                                 leadingIcon = {
@@ -356,7 +389,8 @@ fun ActivityItem(title: String, detail: String, detailColor: Color) {
 @Preview(showBackground = true)
 @Composable
 fun DashboardScreenPreview() {
-    DashboardScreen(
+    DashboardScreenContent(
+        uiState = DashboardUiState(userName = "Business Owner"),
         onReceiveLotClick = {},
         onSellItemClick = {},
         onMoveInventoryClick = {},

@@ -29,7 +29,7 @@ class RegisterViewModel @Inject constructor(
     val registrationEvent = _registrationEvent.receiveAsFlow()
 
     fun onEmailChange(email: String) {
-        _uiState.update { it.copy(email = email, emailError = null) }
+        _uiState.update { it.copy(email = email.trim(), emailError = null) }
     }
 
     fun onPasswordChange(password: String) {
