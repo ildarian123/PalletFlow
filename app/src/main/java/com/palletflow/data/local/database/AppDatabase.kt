@@ -19,6 +19,7 @@ import com.palletflow.data.local.entity.*
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun userDao(): UserDao
     abstract fun warehouseDao(): WarehouseDao
     abstract fun supplierDao(): SupplierDao
     abstract fun lotDao(): LotDao
