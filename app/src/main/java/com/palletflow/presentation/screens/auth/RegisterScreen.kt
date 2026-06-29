@@ -36,6 +36,7 @@ private val ErrorColor = Color(0xFFFF453A)
 fun RegisterScreen(
     state: RegisterUiState,
     onFullNameChange: (String) -> Unit,
+    onBusinessNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
@@ -122,6 +123,16 @@ fun RegisterScreen(
                 label = "Full Name",
                 keyboardType = KeyboardType.Text,
                 error = state.fullNameError
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            RegisterTextField(
+                value = state.businessName,
+                onValueChange = onBusinessNameChange,
+                label = "Business Name",
+                keyboardType = KeyboardType.Text,
+                error = state.businessNameError
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -325,6 +336,7 @@ fun RegisterScreenPreview() {
     RegisterScreen(
         state = RegisterUiState(),
         onFullNameChange = {},
+        onBusinessNameChange = {},
         onEmailChange = {},
         onPasswordChange = {},
         onConfirmPasswordChange = {},

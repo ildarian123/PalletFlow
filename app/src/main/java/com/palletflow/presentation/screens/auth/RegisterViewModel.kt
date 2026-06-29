@@ -39,36 +39,49 @@ class RegisterViewModel @Inject constructor(
         _uiState.update { it.copy(confirmPassword = password, confirmPasswordError = null) }
     }
 
+    fun onBusinessNameChange(name: String) {
+        _uiState.update { it.copy(businessName = name, businessNameError = null) }
+    }
+
     fun register() {
         if (!validate()) return
 
         val state = _uiState.value
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            try {
+                // Check if email is already taken
+                if (userDao.isEmailTaken(state.email) > 0) {
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false,
+                            emailError = "Email is already registered"
+                        )
+                    }
+                    _registrationEvent.value = false
+                    return@launch
+                }
 
-            // Check if email is already taken
-            if (userDao.isEmailTaken(state.email) > 0) {
+                val newUser = UserProfile(
+                    email = state.email,
+                    passwordHash = state.password, // Should be hashed in a real app
+                    businessName = state.businessName
+                )
+
+                userDao.insertUser(newUser)
+                saveCredentials()
+                
+                _uiState.update { it.copy(isLoading = false) }
+                _registrationEvent.value = true
+            } catch (e: Exception) {
                 _uiState.update { 
                     it.copy(
                         isLoading = false,
-                        emailError = "Email is already registered"
+                        emailError = "An error occurred during registration. Please try again."
                     )
                 }
                 _registrationEvent.value = false
-                return@launch
             }
-
-            val newUser = UserProfile(
-                email = state.email,
-                passwordHash = state.password, // Should be hashed
-                businessName = state.fullName // Using full name as business name for now
-            )
-
-            userDao.insertUser(newUser)
-            saveCredentials()
-            
-            _uiState.update { it.copy(isLoading = false) }
-            _registrationEvent.value = true
         }
     }
 
@@ -82,6 +95,11 @@ class RegisterViewModel @Inject constructor(
 
         if (state.fullName.isBlank()) {
             _uiState.update { it.copy(fullNameError = "Full Name cannot be empty") }
+            isValid = false
+        }
+
+        if (state.businessName.isBlank()) {
+            _uiState.update { it.copy(businessNameError = "Business Name cannot be empty") }
             isValid = false
         }
 
@@ -115,6 +133,8 @@ class RegisterViewModel @Inject constructor(
 data class RegisterUiState(
     val fullName: String = "",
     val fullNameError: String? = null,
+    val businessName: String = "",
+    val businessNameError: String? = null,
     val email: String = "",
     val emailError: String? = null,
     val password: String = "",

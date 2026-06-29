@@ -105,6 +105,7 @@ fun AppNavGraph(navController: NavHostController) {
             RegisterScreen(
                 state = state,
                 onFullNameChange = viewModel::onFullNameChange,
+                onBusinessNameChange = viewModel::onBusinessNameChange,
                 onEmailChange = viewModel::onEmailChange,
                 onPasswordChange = viewModel::onPasswordChange,
                 onConfirmPasswordChange = viewModel::onConfirmPasswordChange,
