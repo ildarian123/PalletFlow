@@ -15,4 +15,17 @@ class WarehouseListViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 }
 
-data class WarehouseListUiState(val warehouses: List<String> = emptyList())
+data class WarehouseListUiState(
+    val warehouses: List<WarehouseItem> = emptyList(),
+    val totalValue: String = "$0.00",
+    val isLoading: Boolean = false
+)
+
+data class WarehouseItem(
+    val id: Int,
+    val name: String,
+    val location: String,
+    val isActive: Boolean,
+    val itemsCount: String,
+    val totalValue: String
+)

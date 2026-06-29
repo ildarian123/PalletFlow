@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 
 private val DarkBackground = Color(0xFF121212)
 private val SurfaceColor = Color(0xFF1E1E1E)
@@ -31,33 +32,35 @@ private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val PlaceholderColor = Color(0xFF2C2C2E)
 
-data class WarehouseItem(
-    val id: Int,
-    val name: String,
-    val location: String,
-    val isActive: Boolean,
-    val itemsCount: String,
-    val totalValue: String
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WarehouseListScreen(
     onBackClick: () -> Unit = {},
-    onWarehouseClick: () -> Unit = {},
+    onWarehouseClick: (Int) -> Unit = {},
+    onAddWarehouseClick: () -> Unit = {},
+    viewModel: WarehouseListViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    
+    WarehouseListScreenContent(
+        uiState = uiState,
+        onBackClick = onBackClick,
+        onWarehouseClick = onWarehouseClick,
+        onAddWarehouseClick = onAddWarehouseClick
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WarehouseListScreenContent(
+    uiState: WarehouseListUiState,
+    onBackClick: () -> Unit = {},
+    onWarehouseClick: (Int) -> Unit = {},
     onAddWarehouseClick: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
     
-    val warehouses = remember {
-        listOf(
-            WarehouseItem(1, "Main Warehouse", "Chicago, IL", true, "1,240", "$45,000"),
-            WarehouseItem(2, "Storage Unit 2", "Chicago, IL", true, "380", "$12,500"),
-            WarehouseItem(3, "Retail Location", "Evanston, IL", false, "45", "$1,200")
-        )
-    }
-
-    val filteredWarehouses = warehouses.filter {
+    val filteredWarehouses = uiState.warehouses.filter {
         it.name.contains(searchQuery, ignoreCase = true) || it.location.contains(searchQuery, ignoreCase = true)
     }
 
@@ -90,7 +93,11 @@ fun WarehouseListScreen(
             }
         }
     ) { paddingValues ->
-        if (warehouses.isEmpty()) {
+        if (uiState.isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = AccentTeal)
+            }
+        } else if (uiState.warehouses.isEmpty()) {
             EmptyState(onAddWarehouseClick)
         } else {
             Column(
@@ -109,13 +116,13 @@ fun WarehouseListScreen(
                     MetricCard(
                         modifier = Modifier.weight(1f),
                         label = "Total Warehouses",
-                        value = warehouses.size.toString(),
+                        value = uiState.warehouses.size.toString(),
                         valueColor = TextPrimary
                     )
                     MetricCard(
                         modifier = Modifier.weight(1f),
                         label = "Total Value",
-                        value = "$45,000",
+                        value = uiState.totalValue,
                         valueColor = AccentTeal
                     )
                 }
@@ -146,7 +153,9 @@ fun WarehouseListScreen(
                     contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp)
                 ) {
                     items(filteredWarehouses) { warehouse ->
-                        WarehouseCard(warehouse, onWarehouseClick)
+                        WarehouseCard(warehouse) {
+                            onWarehouseClick(warehouse.id)
+                        }
                     }
                 }
             }
@@ -294,5 +303,13 @@ fun EmptyState(onAddWarehouseClick: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun WarehouseListScreenPreview() {
-    WarehouseListScreen()
+    WarehouseListScreenContent(
+        uiState = WarehouseListUiState(
+            warehouses = listOf(
+                WarehouseItem(1, "Main Warehouse", "Chicago, IL", true, "1,240", "$45,000"),
+                WarehouseItem(2, "Storage Unit 2", "Chicago, IL", true, "380", "$12,500")
+            ),
+            totalValue = "$57,500"
+        )
+    )
 }

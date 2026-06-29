@@ -157,9 +157,9 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.WarehouseList.route) {
             WarehouseListScreen(
                 onBackClick = { navController.popBackStack() },
-                onWarehouseClick = { 
-                    // TODO: Replace hardcoded ID with real warehouseId when data is connected
-                    navController.navigate(Screen.WarehouseDetail.createRoute(1))
+                onWarehouseClick = { warehouseId ->
+                    // TODO: Replace hardcoded navigation logic if needed, currently createRoute(1) is hardcoded
+                    navController.navigate(Screen.WarehouseDetail.createRoute(warehouseId))
                 },
                 onAddWarehouseClick = {
                     navController.navigate(Screen.NewWarehouse.route)
