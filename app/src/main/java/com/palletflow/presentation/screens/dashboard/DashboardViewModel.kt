@@ -41,5 +41,20 @@ class DashboardViewModel @Inject constructor(
 }
 
 data class DashboardUiState(
-    val userName: String = ""
+    val userName: String = "",
+    val totalProfit: String = "$0.00",
+    val itemsSold: String = "0",
+    val activeLots: String = "0",
+    val avgProfit: String = "$0.00",
+    val recentActivities: List<RecentActivityUiState> = emptyList()
 )
+
+data class RecentActivityUiState(
+    val title: String,
+    val detail: String,
+    val detailColorType: ActivityDetailColorType
+)
+
+enum class ActivityDetailColorType {
+    SUCCESS, NORMAL
+}

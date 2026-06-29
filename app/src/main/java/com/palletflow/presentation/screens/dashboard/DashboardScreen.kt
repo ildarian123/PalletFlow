@@ -155,6 +155,7 @@ fun DashboardScreenContent(
             when (currentTab) {
                 BottomNavTab.Dashboard -> {
                     DashboardContent(
+                        uiState = uiState,
                         onReceiveLotClick = onReceiveLotClick,
                         onSellItemClick = onSellItemClick,
                         onMoveInventoryClick = onMoveInventoryClick,
@@ -180,6 +181,7 @@ fun DashboardScreenContent(
 
 @Composable
 fun DashboardContent(
+    uiState: DashboardUiState,
     onReceiveLotClick: () -> Unit,
     onSellItemClick: () -> Unit,
     onMoveInventoryClick: () -> Unit,
@@ -194,7 +196,7 @@ fun DashboardContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Metrics Section
-        MetricsSection()
+        MetricsSection(uiState)
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -209,19 +211,22 @@ fun DashboardContent(
         Spacer(modifier = Modifier.height(32.dp))
 
         // Recent Activity
-        RecentActivitySection(onSeeAllActivityClick = onSeeAllActivityClick)
+        RecentActivitySection(
+            activities = uiState.recentActivities,
+            onSeeAllActivityClick = onSeeAllActivityClick
+        )
         
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
-fun MetricsSection() {
+fun MetricsSection(uiState: DashboardUiState) {
     val metrics = listOf(
-        MetricData("Total Profit", "$24,850", "This month", "+8.4%"),
-        MetricData("Items Sold", "1,348", "Total sold", null),
-        MetricData("Active Lots", "12", "In stock", null),
-        MetricData("Avg. Profit", "$18.40", "Per item", null),
+        MetricData("Total Profit", uiState.totalProfit, "This month", null),
+        MetricData("Items Sold", uiState.itemsSold, "Total sold", null),
+        MetricData("Active Lots", uiState.activeLots, "In stock", null),
+        MetricData("Avg. Profit", uiState.avgProfit, "Per item", null),
     )
 
     LazyRow(
@@ -323,7 +328,10 @@ fun QuickActionButton(label: String, icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-fun RecentActivitySection(onSeeAllActivityClick: () -> Unit) {
+fun RecentActivitySection(
+    activities: List<RecentActivityUiState>,
+    onSeeAllActivityClick: () -> Unit
+) {
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -345,9 +353,25 @@ fun RecentActivitySection(onSeeAllActivityClick: () -> Unit) {
         }
         Spacer(modifier = Modifier.height(16.dp))
         
-        ActivityItem("Sold 5x Wireless Headphones", "+$245", SuccessGreen)
-        ActivityItem("Received Lot #3921", "48 items", TextPrimary)
-        ActivityItem("Moved inventory to Warehouse 2", "12 items", TextPrimary)
+        if (activities.isEmpty()) {
+            Text(
+                "No recent activity",
+                color = TextSecondary,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        } else {
+            activities.forEach { activity ->
+                ActivityItem(
+                    title = activity.title,
+                    detail = activity.detail,
+                    detailColor = when (activity.detailColorType) {
+                        ActivityDetailColorType.SUCCESS -> SuccessGreen
+                        ActivityDetailColorType.NORMAL -> TextPrimary
+                    }
+                )
+            }
+        }
     }
 }
 
