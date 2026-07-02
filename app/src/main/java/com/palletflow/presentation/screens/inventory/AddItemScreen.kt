@@ -29,6 +29,11 @@ private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val ImagePlaceholder = Color(0xFF2C2C2E)
 
+enum class ItemType(val displayName: String) {
+    SINGLE_PRODUCT("Single product"),
+    PALLET("Pallet")
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddItemScreen(
@@ -37,7 +42,8 @@ fun AddItemScreen(
     onScanClick: () -> Unit = {}
 ) {
     var itemName by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf(ItemType.SINGLE_PRODUCT) }
+    var typeExpanded by remember { mutableStateOf(false) }
     var sku by remember { mutableStateOf("") }
     
     var notes by remember { mutableStateOf("") }
@@ -104,12 +110,36 @@ fun AddItemScreen(
                     onValueChange = { itemName = it },
                     label = "Item Name"
                 )
-                PalletOutlinedTextField(
-                    value = category,
-                    onValueChange = { category = it },
-                    label = "Category",
-                    trailingIcon = { Icon(Icons.Default.Label, contentDescription = null, tint = TextSecondary) }
-                )
+
+                ExposedDropdownMenuBox(
+                    expanded = typeExpanded,
+                    onExpandedChange = { typeExpanded = !typeExpanded }
+                ) {
+                    PalletOutlinedTextField(
+                        value = selectedType.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = "Type",
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                        modifier = Modifier.menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = typeExpanded,
+                        onDismissRequest = { typeExpanded = false },
+                        modifier = Modifier.background(SurfaceColor)
+                    ) {
+                        ItemType.entries.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type.displayName, color = TextPrimary) },
+                                onClick = {
+                                    selectedType = type
+                                    typeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 PalletOutlinedTextField(
                     value = sku,
                     onValueChange = { sku = it },
