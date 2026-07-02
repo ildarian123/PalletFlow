@@ -150,28 +150,28 @@ fun InventoryScreenContent(
                             )
                         }
                     }
-                    LazyRow(
-                        contentPadding = PaddingValues(start = 8.dp, end = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        items(warehouses.size) { index ->
-                            val isSelected = selectedWarehouseIndex == index
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedWarehouseIndex = index },
-                                label = { Text(warehouses[index]) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = SurfaceColor,
-                                    labelColor = TextSecondary,
-                                    selectedContainerColor = AccentColor,
-                                    selectedLabelColor = DarkBackground
-                                ),
-                                border = null,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                        }
-                    }
+//                    LazyRow(
+//                        contentPadding = PaddingValues(start = 8.dp, end = 16.dp),
+//                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+//                        verticalAlignment = Alignment.CenterVertically
+//                    ) {
+//                        items(warehouses.size) { index ->
+//                            val isSelected = selectedWarehouseIndex == index
+//                            FilterChip(
+//                                selected = isSelected,
+//                                onClick = { selectedWarehouseIndex = index },
+//                                label = { Text(warehouses[index]) },
+//                                colors = FilterChipDefaults.filterChipColors(
+//                                    containerColor = SurfaceColor,
+//                                    labelColor = TextSecondary,
+//                                    selectedContainerColor = AccentColor,
+//                                    selectedLabelColor = DarkBackground
+//                                ),
+//                                border = null,
+//                                shape = RoundedCornerShape(12.dp)
+//                            )
+//                        }
+//                    }
                 }
             }
 
