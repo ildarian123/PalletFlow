@@ -231,13 +231,6 @@ fun InventoryScreenContent(
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Folder", color = TextPrimary) },
-                    onClick = {
-                        fabExpanded = false
-                        // Handle folder creation
-                    }
-                )
-                DropdownMenuItem(
                     text = { Text("Warehouse", color = TextPrimary) },
                     onClick = {
                         fabExpanded = false
