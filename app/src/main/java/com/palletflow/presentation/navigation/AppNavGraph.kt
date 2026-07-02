@@ -158,7 +158,6 @@ fun AppNavGraph(navController: NavHostController) {
             WarehouseListScreen(
                 onBackClick = { navController.popBackStack() },
                 onWarehouseClick = { warehouseId ->
-                    // TODO: Replace hardcoded navigation logic if needed, currently createRoute(1) is hardcoded
                     navController.navigate(Screen.WarehouseDetail.createRoute(warehouseId))
                 },
                 onAddWarehouseClick = {
@@ -219,7 +218,7 @@ fun AppNavGraph(navController: NavHostController) {
                 onBackClick = { navController.popBackStack() },
                 onEditClick = { 
                     // TODO: Replace hardcoded ID with real warehouseId when data is connected
-                    navController.navigate(Screen.EditWarehouse.createRoute(1))
+                    navController.navigate(Screen.EditWarehouse.createRoute("1"))
                 },
                 onAddLotClick = { /* Handle add lot */ },
                 onMoveItemsClick = { /* Handle move items */ }

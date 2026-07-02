@@ -15,7 +15,7 @@ import com.palletflow.data.local.entity.*
         Transaction::class,
         Expense::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

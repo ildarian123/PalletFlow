@@ -9,7 +9,8 @@ import javax.inject.Inject
 class WarehouseRepositoryImpl @Inject constructor(
     private val warehouseDao: WarehouseDao
 ) : WarehouseRepository {
-    override fun getAllWarehouses(): Flow<List<Warehouse>> = warehouseDao.getAllWarehouses()
+    override fun getAllWarehouses(userId: String): Flow<List<Warehouse>> = 
+        warehouseDao.getAllWarehousesByUser(userId)
     override suspend fun insertWarehouse(warehouse: Warehouse) = warehouseDao.insertWarehouse(warehouse)
     override suspend fun deleteWarehouse(warehouse: Warehouse) = warehouseDao.deleteWarehouse(warehouse)
 }

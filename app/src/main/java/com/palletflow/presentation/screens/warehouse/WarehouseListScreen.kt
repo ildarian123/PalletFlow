@@ -36,7 +36,7 @@ private val PlaceholderColor = Color(0xFF2C2C2E)
 @Composable
 fun WarehouseListScreen(
     onBackClick: () -> Unit = {},
-    onWarehouseClick: (Int) -> Unit = {},
+    onWarehouseClick: (String) -> Unit = {},
     onAddWarehouseClick: () -> Unit = {},
     viewModel: WarehouseListViewModel = hiltViewModel()
 ) {
@@ -55,7 +55,7 @@ fun WarehouseListScreen(
 fun WarehouseListScreenContent(
     uiState: WarehouseListUiState,
     onBackClick: () -> Unit = {},
-    onWarehouseClick: (Int) -> Unit = {},
+    onWarehouseClick: (String) -> Unit = {},
     onAddWarehouseClick: () -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -306,8 +306,8 @@ fun WarehouseListScreenPreview() {
     WarehouseListScreenContent(
         uiState = WarehouseListUiState(
             warehouses = listOf(
-                WarehouseItem(1, "Main Warehouse", "Chicago, IL", true, "1,240", "$45,000"),
-                WarehouseItem(2, "Storage Unit 2", "Chicago, IL", true, "380", "$12,500")
+                WarehouseItem("1", "Main Warehouse", "Chicago, IL", true, "1,240", "$45,000"),
+                WarehouseItem("2", "Storage Unit 2", "Chicago, IL", true, "380", "$12,500")
             ),
             totalValue = "$57,500"
         )
