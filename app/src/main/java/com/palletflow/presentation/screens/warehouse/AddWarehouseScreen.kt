@@ -9,6 +9,9 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.palletflow.data.local.entity.WarehouseType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,15 +32,18 @@ private val BorderColor = Color(0xFF2C2C2E)
 @Composable
 fun AddWarehouseScreen(
     onBackClick: () -> Unit = {},
-    onSaveClick: () -> Unit = {}
+    onSaveClick: () -> Unit = {},
+    viewModel: AddWarehouseViewModel = hiltViewModel()
 ) {
-    var name by remember { mutableStateOf("") }
-    var location by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var selectedTypeIndex by remember { mutableIntStateOf(0) }
-    var isActive by remember { mutableStateOf(true) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val warehouseTypes = listOf("Main Warehouse", "Storage Unit", "Retail Location", "Other")
+    LaunchedEffect(Unit) {
+        viewModel.saveEvent.collect { success ->
+            if (success) onSaveClick()
+        }
+    }
+
+    val warehouseTypes = WarehouseType.entries
 
     Scaffold(
         containerColor = DarkBackground,
@@ -50,8 +56,16 @@ fun AddWarehouseScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = onSaveClick) {
-                        Text("Save", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp).padding(end = 16.dp),
+                            color = AccentTeal,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        TextButton(onClick = viewModel::save) {
+                            Text("Save", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
@@ -92,21 +106,29 @@ fun AddWarehouseScreen(
             // Card 1 — Basic Info
             WarehouseSectionCard(label = "Basic Info") {
                 WarehouseTextField(
-                    value = name,
-                    onValueChange = { name = it },
+                    value = uiState.name,
+                    onValueChange = viewModel::onNameChange,
                     placeholder = "e.g. Main Warehouse",
                     label = "Warehouse Name"
                 )
+                if (uiState.nameError != null) {
+                    Text(
+                        text = uiState.nameError!!,
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                    )
+                }
                 WarehouseTextField(
-                    value = location,
-                    onValueChange = { location = it },
+                    value = uiState.address,
+                    onValueChange = viewModel::onAddressChange,
                     placeholder = "e.g. Chicago, IL",
                     label = "Location / Address",
                     trailingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = TextSecondary) }
                 )
                 WarehouseTextField(
-                    value = description,
-                    onValueChange = { description = it },
+                    value = uiState.description,
+                    onValueChange = viewModel::onDescriptionChange,
                     placeholder = "Optional notes about this warehouse",
                     label = "Description",
                     singleLine = false,
@@ -121,11 +143,11 @@ fun AddWarehouseScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    warehouseTypes.forEachIndexed { index, type ->
+                    warehouseTypes.forEach { type ->
                         FilterChip(
-                            selected = selectedTypeIndex == index,
-                            onClick = { selectedTypeIndex = index },
-                            label = { Text(type) },
+                            selected = uiState.selectedType == type,
+                            onClick = { viewModel.onTypeChange(type) },
+                            label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = AccentTeal,
                                 selectedLabelColor = DarkBackground,
@@ -148,8 +170,8 @@ fun AddWarehouseScreen(
                 ) {
                     Text("Active", color = TextPrimary, fontSize = 16.sp)
                     Switch(
-                        checked = isActive,
-                        onCheckedChange = { isActive = it },
+                        checked = uiState.isActive,
+                        onCheckedChange = viewModel::onActiveChange,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = AccentTeal,
                             checkedTrackColor = AccentTeal.copy(alpha = 0.5f),
