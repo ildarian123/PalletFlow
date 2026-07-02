@@ -1,5 +1,9 @@
 package com.palletflow.presentation.screens.inventory
 
+import android.net.Uri
+import android.os.Environment
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,10 +21,18 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
+import com.palletflow.presentation.common.PhotoPickerSheet
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 private val DarkBackground = Color(0xFF121212)
 private val SurfaceColor = Color(0xFF1E1E1E)
@@ -41,12 +53,51 @@ fun AddItemScreen(
     onSaveClick: () -> Unit = {},
     onScanClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     var itemName by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(ItemType.SINGLE_PRODUCT) }
     var typeExpanded by remember { mutableStateOf(false) }
     var sku by remember { mutableStateOf("") }
-    
     var notes by remember { mutableStateOf("") }
+    
+    var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var showPhotoPicker by remember { mutableStateOf(false) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            capturedImageUri = tempCameraUri
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        capturedImageUri = uri
+    }
+
+    if (showPhotoPicker) {
+        PhotoPickerSheet(
+            onDismiss = { showPhotoPicker = false },
+            onCameraClick = {
+                val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                val storageDir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+                val file = File.createTempFile("JPEG_${timeStamp}_", ".jpg", storageDir)
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+                tempCameraUri = uri
+                cameraLauncher.launch(uri)
+            },
+            onGalleryClick = {
+                galleryLauncher.launch("image/*")
+            }
+        )
+    }
 
     Scaffold(
         containerColor = DarkBackground,
@@ -84,22 +135,42 @@ fun AddItemScreen(
                     .clip(RoundedCornerShape(16.dp))
                     .background(SurfaceColor)
                     .drawBehind {
-                        drawRoundRect(
-                            color = TextSecondary,
-                            style = Stroke(
-                                width = 1.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
-                            ),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())
-                        )
+                        if (capturedImageUri == null) {
+                            drawRoundRect(
+                                color = TextSecondary,
+                                style = Stroke(
+                                    width = 1.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                ),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())
+                            )
+                        }
                     }
-                    .clickable { /* Handle photo upload */ },
+                    .clickable { showPhotoPicker = true },
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(32.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Tap to add photo", color = TextSecondary, fontSize = 14.sp)
+                if (capturedImageUri != null) {
+                    AsyncImage(
+                        model = capturedImageUri,
+                        contentDescription = "Item Photo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    // Optional: Add a "change photo" overlay
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.3f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color.White)
+                    }
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Tap to add photo", color = TextSecondary, fontSize = 14.sp)
+                    }
                 }
             }
 
@@ -121,7 +192,7 @@ fun AddItemScreen(
                         readOnly = true,
                         label = "Type",
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
-                        modifier = Modifier.menuAnchor()
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     )
                     ExposedDropdownMenu(
                         expanded = typeExpanded,
