@@ -53,7 +53,7 @@ class WarehouseRepositoryImpl @Inject constructor(
 
     override suspend fun deleteWarehouse(id: String, userId: String): Result<Unit> {
         return try {
-            warehouseDao.softDeleteWarehouse(id, userId)
+            warehouseDao.deleteWarehouseById(id, userId)
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("WarehouseRepository", "Failed to delete warehouse", e)
