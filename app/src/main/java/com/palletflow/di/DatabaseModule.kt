@@ -21,8 +21,10 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "pallet_flow_db"
-        ).fallbackToDestructiveMigration()
-            .build()
+        ).addMigrations(
+            AppDatabase.MIGRATION_1_2,
+            AppDatabase.MIGRATION_2_3
+        ).build()
     }
 
     @Provides
