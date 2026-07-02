@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.palletflow.data.local.entity.WarehouseType
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,7 +56,6 @@ fun EditWarehouseScreen(
         onNameChange = viewModel::onNameChange,
         onAddressChange = viewModel::onAddressChange,
         onDescriptionChange = viewModel::onDescriptionChange,
-        onTypeChange = viewModel::onTypeChange,
         onActiveChange = viewModel::onActiveChange
     )
 }
@@ -72,11 +70,9 @@ fun EditWarehouseContent(
     onNameChange: (String) -> Unit,
     onAddressChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
-    onTypeChange: (WarehouseType) -> Unit,
     onActiveChange: (Boolean) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
-    val warehouseTypes = WarehouseType.entries
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -206,32 +202,7 @@ fun EditWarehouseContent(
                 )
             }
 
-            // Card 2 — Type
-            WarehouseSectionCard(label = "Warehouse Type") {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    warehouseTypes.forEach { type ->
-                        FilterChip(
-                            selected = uiState.selectedType == type,
-                            onClick = { onTypeChange(type) },
-                            label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = AccentTeal,
-                                selectedLabelColor = DarkBackground,
-                                containerColor = BorderColor,
-                                labelColor = TextSecondary
-                            ),
-                            border = null,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                    }
-                }
-            }
-
-            // Card 3 — Status
+            // Card 2 — Status
             WarehouseSectionCard(label = "Status") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -299,7 +270,6 @@ fun EditWarehouseScreenPreview() {
             name = "Main Warehouse",
             address = "Chicago, IL",
             description = "Main distribution center",
-            selectedType = WarehouseType.MAIN,
             isActive = true
         ),
         onBackClick = {},
@@ -308,7 +278,6 @@ fun EditWarehouseScreenPreview() {
         onNameChange = {},
         onAddressChange = {},
         onDescriptionChange = {},
-        onTypeChange = {},
         onActiveChange = {}
     )
 }

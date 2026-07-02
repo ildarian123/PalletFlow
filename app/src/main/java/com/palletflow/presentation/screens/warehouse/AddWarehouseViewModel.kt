@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.palletflow.data.local.entity.WarehouseType
 import com.palletflow.domain.usecase.warehouse.CreateWarehouseUseCase
 import com.palletflow.domain.usecase.warehouse.DeleteWarehouseUseCase
 import com.palletflow.domain.usecase.warehouse.GetWarehouseUseCase
@@ -53,7 +52,6 @@ class AddWarehouseViewModel @Inject constructor(
                         name = warehouse.name,
                         address = warehouse.address ?: "",
                         description = warehouse.description ?: "",
-                        selectedType = warehouse.type,
                         isActive = warehouse.isActive,
                         isLoading = false
                     )
@@ -76,10 +74,6 @@ class AddWarehouseViewModel @Inject constructor(
         _uiState.update { it.copy(description = description) }
     }
 
-    fun onTypeChange(type: WarehouseType) {
-        _uiState.update { it.copy(selectedType = type) }
-    }
-
     fun onActiveChange(isActive: Boolean) {
         _uiState.update { it.copy(isActive = isActive) }
     }
@@ -97,7 +91,6 @@ class AddWarehouseViewModel @Inject constructor(
                         name = state.name,
                         address = state.address.ifBlank { null },
                         description = state.description.ifBlank { null },
-                        type = state.selectedType,
                         isActive = state.isActive
                     )
                 } else {
@@ -105,7 +98,6 @@ class AddWarehouseViewModel @Inject constructor(
                         name = state.name,
                         address = state.address.ifBlank { null },
                         description = state.description.ifBlank { null },
-                        type = state.selectedType,
                         isActive = state.isActive
                     )
                 }
@@ -181,7 +173,6 @@ data class AddWarehouseUiState(
     val nameError: String? = null,
     val address: String = "",
     val description: String = "",
-    val selectedType: WarehouseType = WarehouseType.MAIN,
     val isActive: Boolean = true,
     val isLoading: Boolean = false
 )

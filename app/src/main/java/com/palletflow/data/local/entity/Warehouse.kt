@@ -15,12 +15,8 @@ data class Warehouse(
     val name: String,
     val address: String? = null,
     val description: String? = null,
-    val type: WarehouseType = WarehouseType.MAIN,
     val isActive: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
 
-enum class WarehouseType {
-    MAIN, STORAGE, RETAIL, OTHER
-}

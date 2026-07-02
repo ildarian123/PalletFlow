@@ -2,7 +2,6 @@ package com.palletflow.domain.usecase.warehouse
 
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.local.entity.Warehouse
-import com.palletflow.data.local.entity.WarehouseType
 import com.palletflow.domain.repository.WarehouseRepository
 import javax.inject.Inject
 
@@ -15,7 +14,6 @@ class UpdateWarehouseUseCase @Inject constructor(
         name: String,
         address: String?,
         description: String?,
-        type: WarehouseType,
         isActive: Boolean
     ): Result<Warehouse> {
         val userId = authPreferences.getUserId()
@@ -28,7 +26,6 @@ class UpdateWarehouseUseCase @Inject constructor(
             name = name.trim(),
             address = address?.trim(),
             description = description?.trim(),
-            type = type,
             isActive = isActive,
             updatedAt = System.currentTimeMillis()
         )
