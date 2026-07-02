@@ -1,9 +1,26 @@
 package com.palletflow.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
+import java.util.UUID
 
-@Entity(tableName = "warehouses")
-data class Warehouse(
-    @PrimaryKey val id: Int
+@Entity(
+    tableName = "warehouses",
+    indices = [Index("userId")]
 )
+data class Warehouse(
+    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val userId: String,
+    val name: String,
+    val address: String? = null,
+    val description: String? = null,
+    val type: WarehouseType = WarehouseType.MAIN,
+    val isActive: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+enum class WarehouseType {
+    MAIN, STORAGE, RETAIL, OTHER
+}
