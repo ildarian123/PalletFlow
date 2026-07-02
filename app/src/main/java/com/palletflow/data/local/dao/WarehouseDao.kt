@@ -24,6 +24,12 @@ interface WarehouseDao {
     @Query("DELETE FROM warehouses WHERE id = :id AND userId = :userId")
     suspend fun deleteWarehouseById(id: String, userId: String)
 
+    @Query("UPDATE warehouses SET isActive = 0 WHERE id = :id AND userId = :userId")
+    suspend fun softDeleteWarehouse(id: String, userId: String)
+
+    @Query("SELECT COUNT(*) FROM warehouses WHERE name = :name AND userId = :userId")
+    suspend fun isNameTaken(name: String, userId: String): Int
+
     @Delete
     suspend fun deleteWarehouse(warehouse: Warehouse)
 }
