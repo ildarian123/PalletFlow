@@ -30,6 +30,9 @@ interface WarehouseDao {
     @Query("SELECT COUNT(*) FROM warehouses WHERE name = :name AND userId = :userId")
     suspend fun isNameTaken(name: String, userId: String): Int
 
+    @Query("SELECT COUNT(*) FROM warehouses WHERE name = :name AND userId = :userId AND id != :excludeId")
+    suspend fun isNameTaken(name: String, userId: String, excludeId: String): Int
+
     @Delete
     suspend fun deleteWarehouse(warehouse: Warehouse)
 }

@@ -38,6 +38,10 @@ class WarehouseRepositoryImpl @Inject constructor(
 
     override suspend fun updateWarehouse(warehouse: Warehouse): Result<Warehouse> {
         return try {
+            // Check if name taken by another warehouse
+            if (warehouseDao.isNameTaken(warehouse.name, warehouse.userId, warehouse.id) > 0) {
+                return Result.failure(Exception("Warehouse name already exists"))
+            }
             val updated = warehouse.copy(updatedAt = System.currentTimeMillis())
             warehouseDao.updateWarehouse(updated)
             Result.success(updated)

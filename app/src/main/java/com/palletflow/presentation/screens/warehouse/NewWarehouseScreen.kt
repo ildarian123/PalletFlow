@@ -6,6 +6,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun NewWarehouseScreen(
     onWarehouseSaved: () -> Unit,
-    viewModel: NewWarehouseViewModel = hiltViewModel()
+    viewModel: AddWarehouseViewModel = hiltViewModel()
 ) {
 }

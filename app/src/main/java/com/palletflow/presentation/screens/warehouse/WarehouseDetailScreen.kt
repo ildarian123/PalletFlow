@@ -33,7 +33,6 @@ private val TextSecondary = Color(0xFFA1A1A6)
 private val PlaceholderColor = Color(0xFF2C2C2E)
 private val BorderColor = Color(0xFF2C2C2E)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WarehouseDetailScreen(
     onBackClick: () -> Unit = {},
@@ -44,6 +43,24 @@ fun WarehouseDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    WarehouseDetailContent(
+        uiState = uiState,
+        onBackClick = onBackClick,
+        onEditClick = onEditClick,
+        onAddLotClick = onAddLotClick,
+        onMoveItemsClick = onMoveItemsClick
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WarehouseDetailContent(
+    uiState: WarehouseDetailUiState,
+    onBackClick: () -> Unit,
+    onEditClick: () -> Unit,
+    onAddLotClick: () -> Unit,
+    onMoveItemsClick: () -> Unit
+) {
     Scaffold(
         containerColor = DarkBackground,
         topBar = {
@@ -148,38 +165,38 @@ fun WarehouseDetailScreen(
                     modifier = Modifier.padding(16.dp)
                 )
 
-                ActivityRow(
-                    icon = Icons.Default.AddBox,
-                    iconColor = Color(0xFF4CD964),
-                    title = "Received Lot #1042",
-                    subtitle = "Nike shoes x12",
-                    amount = "+$145.00",
-                    date = "Today"
-                )
-                ActivityRow(
-                    icon = Icons.Default.Sell,
-                    iconColor = Color(0xFFFF3B30),
-                    title = "Sold Item",
-                    subtitle = "Samsung TV",
-                    amount = "-$320.00",
-                    date = "Yesterday"
-                )
-                ActivityRow(
-                    icon = Icons.Default.LocalShipping,
-                    iconColor = Color(0xFF007AFF),
-                    title = "Transfer",
-                    subtitle = "To Storage 2 • x5 items",
-                    amount = "",
-                    date = "Jun 20"
-                )
-                ActivityRow(
-                    icon = Icons.Default.AddBox,
-                    iconColor = Color(0xFF4CD964),
-                    title = "Received Lot #1041",
-                    subtitle = "Mixed electronics x30",
-                    amount = "+$280.00",
-                    date = "Jun 18"
-                )
+//                ActivityRow(
+//                    icon = Icons.Default.AddBox,
+//                    iconColor = Color(0xFF4CD964),
+//                    title = "Received Lot #1042",
+//                    subtitle = "Nike shoes x12",
+//                    amount = "+$145.00",
+//                    date = "Today"
+//                )
+//                ActivityRow(
+//                    icon = Icons.Default.Sell,
+//                    iconColor = Color(0xFFFF3B30),
+//                    title = "Sold Item",
+//                    subtitle = "Samsung TV",
+//                    amount = "-$320.00",
+//                    date = "Yesterday"
+//                )
+//                ActivityRow(
+//                    icon = Icons.Default.LocalShipping,
+//                    iconColor = Color(0xFF007AFF),
+//                    title = "Transfer",
+//                    subtitle = "To Storage 2 • x5 items",
+//                    amount = "",
+//                    date = "Jun 20"
+//                )
+//                ActivityRow(
+//                    icon = Icons.Default.AddBox,
+//                    iconColor = Color(0xFF4CD964),
+//                    title = "Received Lot #1041",
+//                    subtitle = "Mixed electronics x30",
+//                    amount = "+$280.00",
+//                    date = "Jun 18"
+//                )
 
                 // Items in Warehouse Section
                 Text(
@@ -194,9 +211,9 @@ fun WarehouseDetailScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(6) { index ->
-                        ItemPreviewCard("Item Name $index", "x3")
-                    }
+//                    items(6) { index ->
+//                        ItemPreviewCard("Item Name $index", "x3")
+//                    }
                 }
             }
 
@@ -361,5 +378,19 @@ fun ItemPreviewCard(name: String, qty: String) {
 @Preview(showBackground = true)
 @Composable
 fun WarehouseDetailScreenPreview() {
-    WarehouseDetailScreen()
+    WarehouseDetailContent(
+        uiState = WarehouseDetailUiState(
+            name = "Main Warehouse",
+            location = "Chicago, IL",
+            isActive = true,
+            itemsCount = "1,240",
+            totalValue = "$45,200",
+            activeLots = "12",
+            soldThisMonth = "$12,450"
+        ),
+        onBackClick = {},
+        onEditClick = {},
+        onAddLotClick = {},
+        onMoveItemsClick = {}
+    )
 }

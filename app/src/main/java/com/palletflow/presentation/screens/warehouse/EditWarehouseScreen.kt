@@ -31,7 +31,6 @@ private val BorderColor = Color(0xFF2C2C2E)
 private val ErrorRed = Color(0xFFFF453A)
 private val WarningOrange = Color(0xFFFF9500)
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditWarehouseScreen(
     onBackClick: () -> Unit = {},
@@ -40,14 +39,43 @@ fun EditWarehouseScreen(
     viewModel: AddWarehouseViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        viewModel.saveEvent.collect { success ->
-            if (success) onSaveClick()
+        viewModel.actionEvent.collect { action ->
+            when (action) {
+                WarehouseAction.SAVE -> onSaveClick()
+                WarehouseAction.DELETE -> onDeleteClick()
+            }
         }
     }
 
+    EditWarehouseContent(
+        uiState = uiState,
+        onBackClick = onBackClick,
+        onSaveClick = viewModel::save,
+        onDeleteConfirm = viewModel::delete,
+        onNameChange = viewModel::onNameChange,
+        onAddressChange = viewModel::onAddressChange,
+        onDescriptionChange = viewModel::onDescriptionChange,
+        onTypeChange = viewModel::onTypeChange,
+        onActiveChange = viewModel::onActiveChange
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun EditWarehouseContent(
+    uiState: AddWarehouseUiState,
+    onBackClick: () -> Unit,
+    onSaveClick: () -> Unit,
+    onDeleteConfirm: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onAddressChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onTypeChange: (WarehouseType) -> Unit,
+    onActiveChange: (Boolean) -> Unit
+) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val warehouseTypes = WarehouseType.entries
 
     if (showDeleteDialog) {
@@ -59,7 +87,7 @@ fun EditWarehouseScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
-                    onDeleteClick()
+                    onDeleteConfirm()
                 }) {
                     Text("Delete", color = ErrorRed)
                 }
@@ -90,7 +118,7 @@ fun EditWarehouseScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        TextButton(onClick = viewModel::save) {
+                        TextButton(onClick = onSaveClick) {
                             Text("Save", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     }
@@ -150,13 +178,13 @@ fun EditWarehouseScreen(
             WarehouseSectionCard(label = "Basic Info") {
                 WarehouseTextField(
                     value = uiState.name,
-                    onValueChange = viewModel::onNameChange,
+                    onValueChange = onNameChange,
                     placeholder = "e.g. Main Warehouse",
                     label = "Warehouse Name"
                 )
                 if (uiState.nameError != null) {
                     Text(
-                        text = uiState.nameError!!,
+                        text = uiState.nameError,
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 4.dp, top = 4.dp)
@@ -164,13 +192,13 @@ fun EditWarehouseScreen(
                 }
                 WarehouseTextField(
                     value = uiState.address,
-                    onValueChange = viewModel::onAddressChange,
+                    onValueChange = onAddressChange,
                     placeholder = "e.g. Chicago, IL",
                     label = "Location / Address"
                 )
                 WarehouseTextField(
                     value = uiState.description,
-                    onValueChange = viewModel::onDescriptionChange,
+                    onValueChange = onDescriptionChange,
                     placeholder = "Optional notes about this warehouse",
                     label = "Description",
                     singleLine = false,
@@ -188,7 +216,7 @@ fun EditWarehouseScreen(
                     warehouseTypes.forEach { type ->
                         FilterChip(
                             selected = uiState.selectedType == type,
-                            onClick = { viewModel.onTypeChange(type) },
+                            onClick = { onTypeChange(type) },
                             label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = AccentTeal,
@@ -213,7 +241,7 @@ fun EditWarehouseScreen(
                     Text("Active", color = TextPrimary, fontSize = 16.sp)
                     Switch(
                         checked = uiState.isActive,
-                        onCheckedChange = viewModel::onActiveChange,
+                        onCheckedChange = onActiveChange,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = AccentTeal,
                             checkedTrackColor = AccentTeal.copy(alpha = 0.5f),
@@ -266,5 +294,21 @@ fun EditWarehouseScreen(
 @Preview(showBackground = true)
 @Composable
 fun EditWarehouseScreenPreview() {
-    EditWarehouseScreen()
+    EditWarehouseContent(
+        uiState = AddWarehouseUiState(
+            name = "Main Warehouse",
+            address = "Chicago, IL",
+            description = "Main distribution center",
+            selectedType = WarehouseType.MAIN,
+            isActive = true
+        ),
+        onBackClick = {},
+        onSaveClick = {},
+        onDeleteConfirm = {},
+        onNameChange = {},
+        onAddressChange = {},
+        onDescriptionChange = {},
+        onTypeChange = {},
+        onActiveChange = {}
+    )
 }

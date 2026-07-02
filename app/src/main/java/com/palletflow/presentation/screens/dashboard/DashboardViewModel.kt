@@ -21,6 +21,40 @@ class DashboardViewModel @Inject constructor(
 
     init {
         loadUserProfile()
+        loadRecentActivities()
+    }
+    //TODO delete
+    private fun loadRecentActivities() {
+        _uiState.update { 
+            it.copy(
+                totalProfit = "+$1,240.00",
+                itemsSold = "48",
+                activeLots = "12",
+                avgProfit = "$25.80",
+                recentActivities = listOf(
+                    RecentActivityUiState(
+                        title = "Sold Samsung Tablet",
+                        detail = "+$120.00",
+                        detailColorType = ActivityDetailColorType.SUCCESS
+                    ),
+                    RecentActivityUiState(
+                        title = "Sold Nike Air Max",
+                        detail = "+$45.00",
+                        detailColorType = ActivityDetailColorType.SUCCESS
+                    ),
+                    RecentActivityUiState(
+                        title = "Shipping Cost",
+                        detail = "-$12.00",
+                        detailColorType = ActivityDetailColorType.NORMAL
+                    ),
+                    RecentActivityUiState(
+                        title = "Received Lot #1043",
+                        detail = "-$850.00",
+                        detailColorType = ActivityDetailColorType.NORMAL
+                    )
+                )
+            )
+        }
     }
 
     private fun loadUserProfile() {

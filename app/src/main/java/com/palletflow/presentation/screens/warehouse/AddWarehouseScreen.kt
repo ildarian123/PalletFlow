@@ -28,7 +28,6 @@ private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val BorderColor = Color(0xFF2C2C2E)
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddWarehouseScreen(
     onBackClick: () -> Unit = {},
@@ -38,11 +37,35 @@ fun AddWarehouseScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
-        viewModel.saveEvent.collect { success ->
-            if (success) onSaveClick()
+        viewModel.actionEvent.collect { action ->
+            if (action == WarehouseAction.SAVE) onSaveClick()
         }
     }
 
+    AddWarehouseContent(
+        uiState = uiState,
+        onBackClick = onBackClick,
+        onSaveClick = viewModel::save,
+        onNameChange = viewModel::onNameChange,
+        onAddressChange = viewModel::onAddressChange,
+        onDescriptionChange = viewModel::onDescriptionChange,
+        onTypeChange = viewModel::onTypeChange,
+        onActiveChange = viewModel::onActiveChange
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun AddWarehouseContent(
+    uiState: AddWarehouseUiState,
+    onBackClick: () -> Unit,
+    onSaveClick: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onAddressChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onTypeChange: (WarehouseType) -> Unit,
+    onActiveChange: (Boolean) -> Unit
+) {
     val warehouseTypes = WarehouseType.entries
 
     Scaffold(
@@ -63,7 +86,7 @@ fun AddWarehouseScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        TextButton(onClick = viewModel::save) {
+                        TextButton(onClick = onSaveClick) {
                             Text("Save", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     }
@@ -107,13 +130,13 @@ fun AddWarehouseScreen(
             WarehouseSectionCard(label = "Basic Info") {
                 WarehouseTextField(
                     value = uiState.name,
-                    onValueChange = viewModel::onNameChange,
+                    onValueChange = onNameChange,
                     placeholder = "e.g. Main Warehouse",
                     label = "Warehouse Name"
                 )
                 if (uiState.nameError != null) {
                     Text(
-                        text = uiState.nameError!!,
+                        text = uiState.nameError,
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 4.dp, top = 4.dp)
@@ -121,14 +144,14 @@ fun AddWarehouseScreen(
                 }
                 WarehouseTextField(
                     value = uiState.address,
-                    onValueChange = viewModel::onAddressChange,
+                    onValueChange = onAddressChange,
                     placeholder = "e.g. Chicago, IL",
                     label = "Location / Address",
                     trailingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = TextSecondary) }
                 )
                 WarehouseTextField(
                     value = uiState.description,
-                    onValueChange = viewModel::onDescriptionChange,
+                    onValueChange = onDescriptionChange,
                     placeholder = "Optional notes about this warehouse",
                     label = "Description",
                     singleLine = false,
@@ -146,7 +169,7 @@ fun AddWarehouseScreen(
                     warehouseTypes.forEach { type ->
                         FilterChip(
                             selected = uiState.selectedType == type,
-                            onClick = { viewModel.onTypeChange(type) },
+                            onClick = { onTypeChange(type) },
                             label = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = AccentTeal,
@@ -171,7 +194,7 @@ fun AddWarehouseScreen(
                     Text("Active", color = TextPrimary, fontSize = 16.sp)
                     Switch(
                         checked = uiState.isActive,
-                        onCheckedChange = viewModel::onActiveChange,
+                        onCheckedChange = onActiveChange,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = AccentTeal,
                             checkedTrackColor = AccentTeal.copy(alpha = 0.5f),
@@ -185,60 +208,17 @@ fun AddWarehouseScreen(
     }
 }
 
-@Composable
-fun WarehouseSectionCard(label: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceColor)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(label, color = TextSecondary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            content()
-        }
-    }
-}
-
-@Composable
-fun WarehouseTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    label: String,
-    singleLine: Boolean = true,
-    minLines: Int = 1,
-    trailingIcon: @Composable (() -> Unit)? = null
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        singleLine = singleLine,
-        minLines = minLines,
-        shape = RoundedCornerShape(12.dp),
-        trailingIcon = trailingIcon,
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = TextPrimary,
-            unfocusedTextColor = TextPrimary,
-            focusedBorderColor = AccentTeal,
-            unfocusedBorderColor = BorderColor,
-            focusedLabelColor = AccentTeal,
-            unfocusedLabelColor = TextSecondary,
-            focusedPlaceholderColor = TextSecondary,
-            unfocusedPlaceholderColor = TextSecondary,
-            focusedContainerColor = Color.Transparent,
-            unfocusedContainerColor = Color.Transparent
-        )
-    )
-}
-
 @Preview(showBackground = true)
 @Composable
 fun AddWarehouseScreenPreview() {
-    AddWarehouseScreen()
+    AddWarehouseContent(
+        uiState = AddWarehouseUiState(),
+        onBackClick = {},
+        onSaveClick = {},
+        onNameChange = {},
+        onAddressChange = {},
+        onDescriptionChange = {},
+        onTypeChange = {},
+        onActiveChange = {}
+    )
 }

@@ -1,10 +1,14 @@
 package com.palletflow.presentation.screens.warehouse
 
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.palletflow.data.local.entity.WarehouseType
 import com.palletflow.domain.usecase.warehouse.CreateWarehouseUseCase
+import com.palletflow.domain.usecase.warehouse.DeleteWarehouseUseCase
+import com.palletflow.domain.usecase.warehouse.GetWarehouseUseCase
+import com.palletflow.domain.usecase.warehouse.UpdateWarehouseUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,16 +18,51 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class WarehouseAction {
+    SAVE, DELETE
+}
+
 @HiltViewModel
 class AddWarehouseViewModel @Inject constructor(
-    private val createWarehouseUseCase: CreateWarehouseUseCase
+    private val createWarehouseUseCase: CreateWarehouseUseCase,
+    private val updateWarehouseUseCase: UpdateWarehouseUseCase,
+    private val deleteWarehouseUseCase: DeleteWarehouseUseCase,
+    private val getWarehouseUseCase: GetWarehouseUseCase,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    private val warehouseId: String? = savedStateHandle["id"]
 
     private val _uiState = MutableStateFlow(AddWarehouseUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val _saveEvent = Channel<Boolean>(Channel.BUFFERED)
-    val saveEvent = _saveEvent.receiveAsFlow()
+    private val _actionEvent = Channel<WarehouseAction>(Channel.BUFFERED)
+    val actionEvent = _actionEvent.receiveAsFlow()
+
+    init {
+        warehouseId?.let { loadWarehouse(it) }
+    }
+
+    private fun loadWarehouse(id: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            val warehouse = getWarehouseUseCase(id)
+            if (warehouse != null) {
+                _uiState.update {
+                    it.copy(
+                        name = warehouse.name,
+                        address = warehouse.address ?: "",
+                        description = warehouse.description ?: "",
+                        selectedType = warehouse.type,
+                        isActive = warehouse.isActive,
+                        isLoading = false
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(isLoading = false, nameError = "Warehouse not found") }
+            }
+        }
+    }
 
     fun onNameChange(name: String) {
         _uiState.update { it.copy(name = name, nameError = null) }
@@ -52,23 +91,34 @@ class AddWarehouseViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val result = createWarehouseUseCase(
-                    name = state.name,
-                    address = state.address.ifBlank { null },
-                    description = state.description.ifBlank { null },
-                    type = state.selectedType,
-                    isActive = state.isActive
-                )
+                val result = if (warehouseId != null) {
+                    updateWarehouseUseCase(
+                        id = warehouseId,
+                        name = state.name,
+                        address = state.address.ifBlank { null },
+                        description = state.description.ifBlank { null },
+                        type = state.selectedType,
+                        isActive = state.isActive
+                    )
+                } else {
+                    createWarehouseUseCase(
+                        name = state.name,
+                        address = state.address.ifBlank { null },
+                        description = state.description.ifBlank { null },
+                        type = state.selectedType,
+                        isActive = state.isActive
+                    )
+                }
+
                 if (result.isSuccess) {
                     _uiState.update { it.copy(isLoading = false) }
-                    _saveEvent.trySend(true)
+                    _actionEvent.trySend(WarehouseAction.SAVE)
                 } else {
                     val message = result.exceptionOrNull()?.message
                         ?: "Failed to save warehouse"
                     _uiState.update {
                         it.copy(isLoading = false, nameError = message)
                     }
-                    _saveEvent.trySend(false)
                 }
             } catch (e: Exception) {
                 Log.e("AddWarehouseViewModel", "Save failed", e)
@@ -78,7 +128,34 @@ class AddWarehouseViewModel @Inject constructor(
                         nameError = "An error occurred. Please try again."
                     )
                 }
-                _saveEvent.trySend(false)
+            }
+        }
+    }
+
+    fun delete() {
+        val id = warehouseId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val result = deleteWarehouseUseCase(id)
+                if (result.isSuccess) {
+                    _uiState.update { it.copy(isLoading = false) }
+                    _actionEvent.trySend(WarehouseAction.DELETE)
+                } else {
+                    val message = result.exceptionOrNull()?.message
+                        ?: "Failed to delete warehouse"
+                    _uiState.update {
+                        it.copy(isLoading = false, nameError = message)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("AddWarehouseViewModel", "Delete failed", e)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        nameError = "An error occurred. Please try again."
+                    )
+                }
             }
         }
     }
