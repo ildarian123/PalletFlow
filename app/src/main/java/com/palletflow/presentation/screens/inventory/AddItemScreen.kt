@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,25 +40,7 @@ fun AddItemScreen(
     var category by remember { mutableStateOf("") }
     var sku by remember { mutableStateOf("") }
     
-    var costPrice by remember { mutableStateOf("") }
-    var sellPrice by remember { mutableStateOf("") }
-    
-    var quantity by remember { mutableIntStateOf(1) }
-    var selectedCondition by remember { mutableStateOf("New") }
-    
-    var warehouseExpanded by remember { mutableStateOf(false) }
-    var selectedWarehouse by remember { mutableStateOf("Main Warehouse") }
-    
-    var lotExpanded by remember { mutableStateOf(false) }
-    var selectedLot by remember { mutableStateOf("Lot #1042") }
-    
     var notes by remember { mutableStateOf("") }
-
-    val profit = remember(costPrice, sellPrice) {
-        val cost = costPrice.toDoubleOrNull() ?: 0.0
-        val sell = sellPrice.toDoubleOrNull() ?: 0.0
-        sell - cost
-    }
 
     Scaffold(
         containerColor = DarkBackground,
@@ -141,135 +122,6 @@ fun AddItemScreen(
                 )
             }
 
-            // Card 2 — Pricing
-            AddSectionCard(label = "Pricing") {
-                PalletOutlinedTextField(
-                    value = costPrice,
-                    onValueChange = { costPrice = it },
-                    label = "Cost Price",
-                    prefix = { Text("$") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-                PalletOutlinedTextField(
-                    value = sellPrice,
-                    onValueChange = { sellPrice = it },
-                    label = "Selling Price",
-                    prefix = { Text("$") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Estimated profit:", color = TextSecondary, fontSize = 14.sp)
-                    Text(
-                        "$${String.format("%.2f", profit)}",
-                        color = AccentTeal,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            // Card 3 — Stock
-            AddSectionCard(label = "Stock") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Quantity", color = TextPrimary, fontSize = 14.sp)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        IconButton(
-                            onClick = { if (quantity > 0) quantity-- },
-                            colors = IconButtonDefaults.iconButtonColors(containerColor = ImagePlaceholder)
-                        ) {
-                            Icon(Icons.Default.Remove, contentDescription = "Minus", tint = TextPrimary)
-                        }
-                        Text(
-                            text = quantity.toString(),
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.width(32.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        IconButton(
-                            onClick = { quantity++ },
-                            colors = IconButtonDefaults.iconButtonColors(containerColor = ImagePlaceholder)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Plus", tint = TextPrimary)
-                        }
-                    }
-                }
-
-                Text("Condition", color = TextSecondary, fontSize = 12.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ConditionFilterChip(label = "New", isSelected = selectedCondition == "New") { selectedCondition = "New" }
-                    ConditionFilterChip(label = "Used", isSelected = selectedCondition == "Used") { selectedCondition = "Used" }
-                    ConditionFilterChip(label = "Damaged", isSelected = selectedCondition == "Damaged") { selectedCondition = "Damaged" }
-                }
-
-                ExposedDropdownMenuBox(
-                    expanded = warehouseExpanded,
-                    onExpandedChange = { warehouseExpanded = !warehouseExpanded }
-                ) {
-                    PalletOutlinedTextField(
-                        value = selectedWarehouse,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = "Warehouse",
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = warehouseExpanded) },
-                        modifier = Modifier.menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = warehouseExpanded,
-                        onDismissRequest = { warehouseExpanded = false },
-                        modifier = Modifier.background(SurfaceColor)
-                    ) {
-                        listOf("Main Warehouse", "Warehouse A", "Warehouse B").forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option, color = TextPrimary) },
-                                onClick = {
-                                    selectedWarehouse = option
-                                    warehouseExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                ExposedDropdownMenuBox(
-                    expanded = lotExpanded,
-                    onExpandedChange = { lotExpanded = !lotExpanded }
-                ) {
-                    PalletOutlinedTextField(
-                        value = selectedLot,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = "Lot",
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = lotExpanded) },
-                        modifier = Modifier.menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = lotExpanded,
-                        onDismissRequest = { lotExpanded = false },
-                        modifier = Modifier.background(SurfaceColor)
-                    ) {
-                        listOf("Lot #1042", "Lot #1043", "Lot #1044").forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option, color = TextPrimary) },
-                                onClick = {
-                                    selectedLot = option
-                                    lotExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
             // Card 4 — Notes
             AddSectionCard(label = "Notes") {
                 PalletOutlinedTextField(
@@ -339,23 +191,6 @@ fun PalletOutlinedTextField(
             focusedContainerColor = Color.Transparent,
             unfocusedContainerColor = Color.Transparent
         )
-    )
-}
-
-@Composable
-fun ConditionFilterChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = isSelected,
-        onClick = onClick,
-        label = { Text(label) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = AccentTeal,
-            selectedLabelColor = Color.Black,
-            containerColor = ImagePlaceholder,
-            labelColor = TextPrimary
-        ),
-        border = null,
-        shape = RoundedCornerShape(8.dp)
     )
 }
 
