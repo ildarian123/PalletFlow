@@ -305,11 +305,8 @@ fun EmptyState(onAddWarehouseClick: () -> Unit) {
 fun WarehouseListScreenPreview() {
     WarehouseListScreenContent(
         uiState = WarehouseListUiState(
-            warehouses = listOf(
-                WarehouseItem("1", "Main Warehouse", "Chicago, IL", true, "1,240", "$45,000"),
-                WarehouseItem("2", "Storage Unit 2", "Chicago, IL", true, "380", "$12,500")
-            ),
-            totalValue = "$57,500"
+            warehouses = emptyList(),
+            totalValue = "$0.00"
         )
     )
 }

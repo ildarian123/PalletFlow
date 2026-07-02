@@ -10,6 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,13 +39,16 @@ fun WarehouseDetailScreen(
     onBackClick: () -> Unit = {},
     onEditClick: () -> Unit = {},
     onAddLotClick: () -> Unit = {},
-    onMoveItemsClick: () -> Unit = {}
+    onMoveItemsClick: () -> Unit = {},
+    viewModel: WarehouseDetailViewModel = hiltViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+
     Scaffold(
         containerColor = DarkBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Main Warehouse", color = TextPrimary, fontWeight = FontWeight.Bold) },
+                title = { Text(uiState.name, color = TextPrimary, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
@@ -87,27 +93,27 @@ fun WarehouseDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            "Main Warehouse",
+                            uiState.name,
                             color = TextPrimary,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            "Chicago, IL",
+                            uiState.location,
                             color = TextSecondary,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Surface(
-                            color = AccentTeal.copy(alpha = 0.2f),
+                            color = (if (uiState.isActive) AccentTeal else TextSecondary).copy(alpha = 0.2f),
                             shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, AccentTeal.copy(alpha = 0.5f))
+                            border = BorderStroke(1.dp, (if (uiState.isActive) AccentTeal else TextSecondary).copy(alpha = 0.5f))
                         ) {
                             Text(
-                                "Active",
-                                color = AccentTeal,
+                                if (uiState.isActive) "Active" else "Inactive",
+                                color = if (uiState.isActive) AccentTeal else TextSecondary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
@@ -124,12 +130,12 @@ fun WarehouseDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        DetailMetricCard(Modifier.weight(1f), "Total Items", "1,240", TextPrimary)
-                        DetailMetricCard(Modifier.weight(1f), "Total Value", "$45,000", AccentTeal)
+                        DetailMetricCard(Modifier.weight(1f), "Total Items", uiState.itemsCount, TextPrimary)
+                        DetailMetricCard(Modifier.weight(1f), "Total Value", uiState.totalValue, AccentTeal)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        DetailMetricCard(Modifier.weight(1f), "Active Lots", "12", TextPrimary)
-                        DetailMetricCard(Modifier.weight(1f), "Sold This Month", "$8,500", AccentTeal)
+                        DetailMetricCard(Modifier.weight(1f), "Active Lots", uiState.activeLots, TextPrimary)
+                        DetailMetricCard(Modifier.weight(1f), "Sold This Month", uiState.soldThisMonth, AccentTeal)
                     }
                 }
 
