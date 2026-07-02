@@ -9,8 +9,20 @@ interface WarehouseDao {
     @Query("SELECT * FROM warehouses WHERE userId = :userId ORDER BY createdAt DESC")
     fun getAllWarehousesByUser(userId: String): Flow<List<Warehouse>>
 
+    @Query("SELECT * FROM warehouses WHERE userId = :userId AND isActive = 1 ORDER BY createdAt DESC")
+    fun getActiveWarehousesByUser(userId: String): Flow<List<Warehouse>>
+
+    @Query("SELECT * FROM warehouses WHERE id = :id AND userId = :userId LIMIT 1")
+    suspend fun getWarehouseById(id: String, userId: String): Warehouse?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWarehouse(warehouse: Warehouse)
+
+    @Update
+    suspend fun updateWarehouse(warehouse: Warehouse)
+
+    @Query("DELETE FROM warehouses WHERE id = :id AND userId = :userId")
+    suspend fun deleteWarehouseById(id: String, userId: String)
 
     @Delete
     suspend fun deleteWarehouse(warehouse: Warehouse)

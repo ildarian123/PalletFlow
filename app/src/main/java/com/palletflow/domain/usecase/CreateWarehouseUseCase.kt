@@ -7,5 +7,5 @@ import javax.inject.Inject
 class CreateWarehouseUseCase @Inject constructor(
     private val repository: WarehouseRepository
 ) {
-    suspend operator fun invoke(warehouse: Warehouse) = repository.insertWarehouse(warehouse)
+    suspend operator fun invoke(warehouse: Warehouse) = repository.createWarehouse(warehouse)
 }

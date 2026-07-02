@@ -11,6 +11,31 @@ class WarehouseRepositoryImpl @Inject constructor(
 ) : WarehouseRepository {
     override fun getAllWarehouses(userId: String): Flow<List<Warehouse>> = 
         warehouseDao.getAllWarehousesByUser(userId)
-    override suspend fun insertWarehouse(warehouse: Warehouse) = warehouseDao.insertWarehouse(warehouse)
-    override suspend fun deleteWarehouse(warehouse: Warehouse) = warehouseDao.deleteWarehouse(warehouse)
+
+    override fun getActiveWarehouses(userId: String): Flow<List<Warehouse>> =
+        warehouseDao.getActiveWarehousesByUser(userId)
+
+    override suspend fun getWarehouseById(id: String, userId: String): Warehouse? =
+        warehouseDao.getWarehouseById(id, userId)
+
+    override suspend fun createWarehouse(warehouse: Warehouse): Result<Warehouse> = try {
+        warehouseDao.insertWarehouse(warehouse)
+        Result.success(warehouse)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun updateWarehouse(warehouse: Warehouse): Result<Warehouse> = try {
+        warehouseDao.updateWarehouse(warehouse)
+        Result.success(warehouse)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override suspend fun deleteWarehouse(id: String, userId: String): Result<Unit> = try {
+        warehouseDao.deleteWarehouseById(id, userId)
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }
