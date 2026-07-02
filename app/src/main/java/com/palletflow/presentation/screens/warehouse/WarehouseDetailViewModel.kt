@@ -31,6 +31,7 @@ class WarehouseDetailViewModel @Inject constructor(
             if (warehouse != null) {
                 _uiState.update {
                     it.copy(
+                        id = warehouse.id,
                         name = warehouse.name,
                         location = warehouse.address ?: "No address",
                         isActive = warehouse.isActive,
@@ -47,6 +48,7 @@ class WarehouseDetailViewModel @Inject constructor(
 }
 
 data class WarehouseDetailUiState(
+    val id: String = "",
     val name: String = "",
     val location: String = "",
     val isActive: Boolean = true,

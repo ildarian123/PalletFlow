@@ -36,7 +36,7 @@ private val BorderColor = Color(0xFF2C2C2E)
 @Composable
 fun WarehouseDetailScreen(
     onBackClick: () -> Unit = {},
-    onEditClick: () -> Unit = {},
+    onEditClick: (String) -> Unit = {},
     onAddLotClick: () -> Unit = {},
     onMoveItemsClick: () -> Unit = {},
     viewModel: WarehouseDetailViewModel = hiltViewModel()
@@ -46,7 +46,7 @@ fun WarehouseDetailScreen(
     WarehouseDetailContent(
         uiState = uiState,
         onBackClick = onBackClick,
-        onEditClick = onEditClick,
+        onEditClick = { onEditClick(uiState.id) },
         onAddLotClick = onAddLotClick,
         onMoveItemsClick = onMoveItemsClick
     )
@@ -380,6 +380,7 @@ fun ItemPreviewCard(name: String, qty: String) {
 fun WarehouseDetailScreenPreview() {
     WarehouseDetailContent(
         uiState = WarehouseDetailUiState(
+            id = "1",
             name = "Main Warehouse",
             location = "Chicago, IL",
             isActive = true,
