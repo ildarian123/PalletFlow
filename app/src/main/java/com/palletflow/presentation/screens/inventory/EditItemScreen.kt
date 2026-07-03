@@ -8,17 +8,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager // Added
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.palletflow.data.local.entity.ItemType
+import java.io.File
 
 private val DarkBackground = Color(0xFF121212)
 private val SurfaceColor = Color(0xFF1E1E1E)
@@ -33,9 +41,25 @@ private val ErrorColor = Color(0xFFFF453A)
 fun EditItemScreen(
     onBackClick: () -> Unit = {},
     onSaveClick: () -> Unit = {},
-    onDeleteClick: () -> Unit = {}
+    onDeleteClick: () -> Unit = {},
+    viewModel: EditItemViewModel = hiltViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (uiState.isLoading) {
+        Box(Modifier.fillMaxSize().background(DarkBackground), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = AccentTeal)
+        }
+        return
+    }
+
+    if (uiState.error != null) {
+        Box(Modifier.fillMaxSize().background(DarkBackground), contentAlignment = Alignment.Center) {
+            Text(uiState.error ?: "", color = ErrorColor)
+        }
+        return
+    }
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -96,12 +120,27 @@ fun EditItemScreen(
                     .background(ImagePlaceholder),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Image,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp),
-                    tint = TextSecondary
-                )
+                if (uiState.photoPath != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(File(uiState.photoPath!!))
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Item photo",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Image,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = TextSecondary
+                    )
+                }
                 
                 // Edit overlay button
                 Box(
@@ -125,44 +164,27 @@ fun EditItemScreen(
 
             // Card 1 — Basic Info
             EditSectionCard(title = "Basic Info") {
-                PalletTextField(label = "Item Name", value = "Nike Air Max 90")
-                PalletTextField(label = "Category", value = "Footwear")
-                PalletTextField(label = "SKU", value = "SKU-10042")
-            }
-
-            // Card 2 — Pricing
-            EditSectionCard(title = "Pricing") {
-                PalletTextField(label = "Cost Price", value = "12.00")
-                PalletTextField(label = "Selling Price", value = "45.00")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Profit preview", color = TextSecondary, fontSize = 14.sp)
-                    Text("$33.00", color = AccentTeal, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            // Card 3 — Stock
-            EditSectionCard(title = "Stock") {
-                PalletTextField(label = "Quantity", value = "3")
+                PalletTextField(label = "Item Name", value = uiState.name)
                 
-                Text("Condition", color = TextSecondary, fontSize = 14.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ConditionChip("New", false)
-                    ConditionChip("Used", true)
-                    ConditionChip("Damaged", false)
-                }
-                
-                PalletTextField(label = "Warehouse", value = "Main Warehouse")
-                PalletTextField(label = "Lot", value = "Lot #1042")
+                // Type Dropdown (Simplified display for Task 2)
+                PalletTextField(
+                    label = "Type",
+                    value = when(uiState.type) {
+                        ItemType.SINGLE_PRODUCT -> "Single Product"
+                        ItemType.PALLET -> "Pallet"
+                        ItemType.TRUCKLOAD -> "Truckload"
+                    },
+                    readOnly = true
+                )
+
+                PalletTextField(label = "SKU / Barcode", value = uiState.sku)
             }
 
             // Card 4 — Notes
             EditSectionCard(title = "Notes") {
                 PalletTextField(
                     label = "Notes",
-                    value = "Good condition, minor scuffs",
+                    value = uiState.notes,
                     singleLine = false,
                     modifier = Modifier.heightIn(min = 80.dp)
                 )
@@ -219,17 +241,18 @@ fun PalletTextField(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    singleLine: Boolean = true
+    singleLine: Boolean = true,
+    readOnly: Boolean = false,
+    onValueChange: (String) -> Unit = {}
 ) {
-    var textState by remember { mutableStateOf(value) }
-    
     OutlinedTextField(
-        value = textState,
-        onValueChange = { textState = it },
+        value = value,
+        onValueChange = onValueChange,
         label = { Text(label) },
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         singleLine = singleLine,
+        readOnly = readOnly,
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = TextPrimary,
             unfocusedTextColor = TextPrimary,
@@ -241,23 +264,6 @@ fun PalletTextField(
             unfocusedContainerColor = Color.Transparent
         )
     )
-}
-
-@Composable
-fun ConditionChip(label: String, selected: Boolean) {
-    Surface(
-        color = if (selected) AccentTeal else ImagePlaceholder,
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier.clickable { /* Handle select */ }
-    ) {
-        Text(
-            text = label,
-            color = if (selected) Color.Black else TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-        )
-    }
 }
 
 @Preview(showBackground = true)
