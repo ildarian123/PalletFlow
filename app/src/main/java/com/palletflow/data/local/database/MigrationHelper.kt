@@ -77,6 +77,15 @@ object MigrationHelper {
         Initial schema establish and formal migration strategy implementation.
         Date: 2025-05-22
 
+    Version 3 → 4:
+        Added items entity and lot_items update.
+        Date: 2025-05-22
+
+    Version 4 → 5:
+        Simplified items table to only include fields visible on screen.
+        Dropped and recreated items table.
+        Date: 2025-05-22
+
     // Add new entries here as you make changes
     */
 }

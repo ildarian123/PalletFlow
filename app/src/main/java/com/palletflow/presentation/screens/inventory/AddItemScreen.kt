@@ -27,8 +27,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
+import com.palletflow.data.local.entity.ItemType
 import com.palletflow.presentation.common.PhotoPickerSheet
 import java.io.File
 import java.text.SimpleDateFormat
@@ -41,26 +44,24 @@ private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val ImagePlaceholder = Color(0xFF2C2C2E)
 
-enum class ItemType(val displayName: String) {
-    SINGLE_PRODUCT("Single product"),
-    PALLET("Pallet")
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddItemScreen(
     onBackClick: () -> Unit = {},
     onSaveClick: () -> Unit = {},
-    onScanClick: () -> Unit = {}
+    onScanClick: () -> Unit = {},
+    viewModel: AddItemViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    var itemName by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(ItemType.SINGLE_PRODUCT) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.saveEvent.collect { success ->
+            if (success) onSaveClick()
+        }
+    }
+
     var typeExpanded by remember { mutableStateOf(false) }
-    var sku by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
-    
-    var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
     var showPhotoPicker by remember { mutableStateOf(false) }
 
@@ -68,14 +69,14 @@ fun AddItemScreen(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success) {
-            capturedImageUri = tempCameraUri
+            tempCameraUri?.let { viewModel.onPhotoPathChange(it.toString()) }
         }
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        capturedImageUri = uri
+        uri?.let { viewModel.onPhotoPathChange(it.toString()) }
     }
 
     if (showPhotoPicker) {
@@ -110,8 +111,19 @@ fun AddItemScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = onSaveClick) {
-                        Text("Save", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp).padding(end = 16.dp),
+                            color = AccentTeal,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        TextButton(
+                            onClick = viewModel::save,
+                            enabled = !uiState.isLoading
+                        ) {
+                            Text("Save", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
@@ -135,7 +147,7 @@ fun AddItemScreen(
                     .clip(RoundedCornerShape(16.dp))
                     .background(SurfaceColor)
                     .drawBehind {
-                        if (capturedImageUri == null) {
+                        if (uiState.photoPath == null) {
                             drawRoundRect(
                                 color = TextSecondary,
                                 style = Stroke(
@@ -146,12 +158,12 @@ fun AddItemScreen(
                             )
                         }
                     }
-                    .clickable { showPhotoPicker = true },
+                    .clickable(enabled = !uiState.isLoading) { showPhotoPicker = true },
                 contentAlignment = Alignment.Center
             ) {
-                if (capturedImageUri != null) {
+                if (uiState.photoPath != null) {
                     AsyncImage(
-                        model = capturedImageUri,
+                        model = uiState.photoPath,
                         contentDescription = "Item Photo",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -177,17 +189,25 @@ fun AddItemScreen(
             // Card 1 — Basic Info
             AddSectionCard(label = "Basic Info") {
                 PalletOutlinedTextField(
-                    value = itemName,
-                    onValueChange = { itemName = it },
-                    label = "Item Name"
+                    value = uiState.name,
+                    onValueChange = viewModel::onNameChange,
+                    label = "Item Name",
+                    isError = uiState.nameError != null,
+                    supportingText = uiState.nameError?.let {
+                        { Text(it, color = MaterialTheme.colorScheme.error) }
+                    }
                 )
 
                 ExposedDropdownMenuBox(
                     expanded = typeExpanded,
-                    onExpandedChange = { typeExpanded = !typeExpanded }
+                    onExpandedChange = { if (!uiState.isLoading) typeExpanded = !typeExpanded }
                 ) {
                     PalletOutlinedTextField(
-                        value = selectedType.displayName,
+                        value = when (uiState.type) {
+                            ItemType.SINGLE_PRODUCT -> "Single Product"
+                            ItemType.PALLET -> "Pallet"
+                            else -> "Single Product"
+                        },
                         onValueChange = {},
                         readOnly = true,
                         label = "Type",
@@ -199,24 +219,29 @@ fun AddItemScreen(
                         onDismissRequest = { typeExpanded = false },
                         modifier = Modifier.background(SurfaceColor)
                     ) {
-                        ItemType.entries.forEach { type ->
-                            DropdownMenuItem(
-                                text = { Text(type.displayName, color = TextPrimary) },
-                                onClick = {
-                                    selectedType = type
-                                    typeExpanded = false
-                                }
-                            )
-                        }
+                        DropdownMenuItem(
+                            text = { Text("Single Product", color = TextPrimary) },
+                            onClick = {
+                                viewModel.onTypeChange(ItemType.SINGLE_PRODUCT)
+                                typeExpanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Pallet", color = TextPrimary) },
+                            onClick = {
+                                viewModel.onTypeChange(ItemType.PALLET)
+                                typeExpanded = false
+                            }
+                        )
                     }
                 }
 
                 PalletOutlinedTextField(
-                    value = sku,
-                    onValueChange = { sku = it },
+                    value = uiState.sku,
+                    onValueChange = viewModel::onSkuChange,
                     label = "SKU / Barcode",
                     trailingIcon = { 
-                        IconButton(onClick = onScanClick) {
+                        IconButton(onClick = onScanClick, enabled = !uiState.isLoading) {
                             Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan", tint = TextSecondary)
                         }
                     }
@@ -226,8 +251,8 @@ fun AddItemScreen(
             // Card 4 — Notes
             AddSectionCard(label = "Notes") {
                 PalletOutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
+                    value = uiState.notes,
+                    onValueChange = viewModel::onNotesChange,
                     label = "Notes",
                     minLines = 3,
                     maxLines = 6,
@@ -267,7 +292,9 @@ fun PalletOutlinedTextField(
     readOnly: Boolean = false,
     singleLine: Boolean = true,
     minLines: Int = 1,
-    maxLines: Int = Int.MAX_VALUE
+    maxLines: Int = Int.MAX_VALUE,
+    isError: Boolean = false,
+    supportingText: @Composable (() -> Unit)? = null
 ) {
     OutlinedTextField(
         value = value,
@@ -282,6 +309,8 @@ fun PalletOutlinedTextField(
         singleLine = singleLine,
         minLines = minLines,
         maxLines = maxLines,
+        isError = isError,
+        supportingText = supportingText,
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = TextPrimary,
             unfocusedTextColor = TextPrimary,
