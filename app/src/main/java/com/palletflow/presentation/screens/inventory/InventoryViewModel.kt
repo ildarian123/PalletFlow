@@ -5,21 +5,32 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.palletflow.data.local.entity.Item
 import com.palletflow.data.local.entity.ItemType
+import com.palletflow.domain.usecase.item.DeleteItemUseCase
 import com.palletflow.domain.usecase.item.GetAllItemsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+sealed class DeleteEvent {
+    data class Error(val message: String) : DeleteEvent()
+    object Success : DeleteEvent()
+}
+
 @HiltViewModel
 class InventoryViewModel @Inject constructor(
-    private val getAllItemsUseCase: GetAllItemsUseCase
+    private val getAllItemsUseCase: GetAllItemsUseCase,
+    private val deleteItemUseCase: DeleteItemUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(InventoryUiState())
     val uiState = _uiState.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
+
+    private val _deleteEvent = Channel<DeleteEvent>(Channel.BUFFERED)
+    val deleteEvent = _deleteEvent.receiveAsFlow()
 
     init {
         loadItems()
@@ -70,6 +81,23 @@ class InventoryViewModel @Inject constructor(
                 selectedTypeFilter = type,
                 filteredItems = filterItems(it.items, _searchQuery.value, type)
             )
+        }
+    }
+
+    fun deleteItem(item: Item) {
+        viewModelScope.launch {
+            try {
+                val result = deleteItemUseCase(item)
+                if (result.isSuccess) {
+                    _deleteEvent.trySend(DeleteEvent.Success)
+                } else {
+                    val message = result.exceptionOrNull()?.message ?: "Failed to delete item"
+                    _deleteEvent.trySend(DeleteEvent.Error(message))
+                }
+            } catch (e: Exception) {
+                Log.e("InventoryViewModel", "Delete failed", e)
+                _deleteEvent.trySend(DeleteEvent.Error("An error occurred. Please try again."))
+            }
         }
     }
 

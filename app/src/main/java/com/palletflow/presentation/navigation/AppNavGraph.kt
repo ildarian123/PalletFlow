@@ -136,19 +136,28 @@ fun AppNavGraph(navController: NavHostController) {
         }
         
         composable(Screen.Dashboard.route) {
-            MainScreen(
+            var currentTab by remember { mutableStateOf(BottomNavTab.Dashboard) }
+            
+            DashboardScreen(
+                onReceiveLotClick = { navController.navigate(Screen.ReceiveNewLot.route) },
+                onSellItemClick = { navController.navigate(Screen.NewSale.route) },
+                onMoveInventoryClick = { navController.navigate(Screen.MoveInventory.route) },
+                onAddExpenseClick = { navController.navigate(Screen.AddExpense.route) },
+                onSeeAllActivityClick = { /* Handle */ },
                 onLogoutClick = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Dashboard.route) { inclusive = true }
                     }
                 },
+                onInventoryItemClick = { itemId ->
+                    navController.navigate(Screen.ItemDetail.createRoute(itemId))
+                },
                 onAddItemClick = {
                     navController.navigate(Screen.AddItem.route)
                 },
-                onItemClick = { itemId ->
-                    navController.navigate(Screen.ItemDetail.createRoute(itemId))
-                },
-                rootNavController = navController
+                currentTab = currentTab,
+                onTabSelected = { currentTab = it },
+                navController = navController
             )
         }
 

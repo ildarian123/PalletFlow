@@ -25,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import com.palletflow.presentation.navigation.BottomNavTab
 import com.palletflow.presentation.navigation.BottomNavigationBar
 import com.palletflow.presentation.screens.inventory.InventoryScreen
@@ -45,10 +46,11 @@ fun DashboardScreen(
     onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
-    onInventoryItemClick: (Int) -> Unit,
+    onInventoryItemClick: (String) -> Unit,
     onAddItemClick: () -> Unit,
     currentTab: BottomNavTab,
     onTabSelected: (BottomNavTab) -> Unit,
+    navController: NavHostController,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -67,7 +69,8 @@ fun DashboardScreen(
         onInventoryItemClick = onInventoryItemClick,
         onAddItemClick = onAddItemClick,
         currentTab = currentTab,
-        onTabSelected = onTabSelected
+        onTabSelected = onTabSelected,
+        navController = navController
     )
 }
 
@@ -81,10 +84,11 @@ fun DashboardScreenContent(
     onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
-    onInventoryItemClick: (Int) -> Unit,
+    onInventoryItemClick: (String) -> Unit,
     onAddItemClick: () -> Unit,
     currentTab: BottomNavTab,
-    onTabSelected: (BottomNavTab) -> Unit
+    onTabSelected: (BottomNavTab) -> Unit,
+    navController: NavHostController
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
@@ -165,8 +169,9 @@ fun DashboardScreenContent(
                 }
                 BottomNavTab.Inventory -> {
                     InventoryScreen(
-                        onItemClick = { onInventoryItemClick(1) }, // Using 1 as placeholder ID
-                        onAddClick = onAddItemClick
+                        onItemClick = onInventoryItemClick,
+                        onAddClick = onAddItemClick,
+                        navController = navController
                     )
                 }
                 else -> {
@@ -408,22 +413,4 @@ fun ActivityItem(title: String, detail: String, detailColor: Color) {
             )
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun DashboardScreenPreview() {
-    DashboardScreenContent(
-        uiState = DashboardUiState(userName = "Business Owner"),
-        onReceiveLotClick = {},
-        onSellItemClick = {},
-        onMoveInventoryClick = {},
-        onAddExpenseClick = {},
-        onSeeAllActivityClick = {},
-        onLogoutClick = {},
-        onInventoryItemClick = {},
-        onAddItemClick = {},
-        currentTab = BottomNavTab.Dashboard,
-        onTabSelected = {}
-    )
 }

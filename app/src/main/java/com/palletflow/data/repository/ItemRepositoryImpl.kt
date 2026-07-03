@@ -1,8 +1,10 @@
 package com.palletflow.data.repository
 
+import android.util.Log
 import com.palletflow.data.local.dao.ItemDao
 import com.palletflow.data.local.entity.Item
 import com.palletflow.domain.repository.ItemRepository
+import com.palletflow.util.PhotoManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
@@ -10,7 +12,8 @@ import javax.inject.Singleton
 
 @Singleton
 class ItemRepositoryImpl @Inject constructor(
-    private val itemDao: ItemDao
+    private val itemDao: ItemDao,
+    private val photoManager: PhotoManager
 ) : ItemRepository {
 
     override fun getAllItems(userId: String): Flow<List<Item>> =
@@ -38,11 +41,15 @@ class ItemRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteItem(item: Item): Result<Unit> {
+    override suspend fun deleteItem(item: Item, deletePhoto: Boolean): Result<Unit> {
         return try {
             itemDao.deleteItem(item)
+            if (deletePhoto) {
+                photoManager.deletePhoto(item.photoPath)
+            }
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.e("ItemRepositoryImpl", "Failed to delete item", e)
             Result.failure(e)
         }
     }

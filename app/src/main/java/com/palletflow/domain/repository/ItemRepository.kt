@@ -8,6 +8,6 @@ interface ItemRepository {
     fun getItem(id: String, userId: String): Flow<Item?>
     suspend fun createItem(item: Item): Result<Item>
     suspend fun updateItem(item: Item): Result<Item>
-    suspend fun deleteItem(item: Item): Result<Unit>
+    suspend fun deleteItem(item: Item, deletePhoto: Boolean = true): Result<Unit>
     fun searchItems(userId: String, query: String): Flow<List<Item>>
 }

@@ -24,4 +24,10 @@ object AppModule {
     fun provideLocalFileHelper(@ApplicationContext context: Context): com.palletflow.util.LocalFileHelper {
         return com.palletflow.util.LocalFileHelper(context)
     }
+
+    @Provides
+    @Singleton
+    fun providePhotoManager(@ApplicationContext context: Context): com.palletflow.util.PhotoManager {
+        return com.palletflow.util.PhotoManager(context)
+    }
 }

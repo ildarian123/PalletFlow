@@ -2,6 +2,7 @@ package com.palletflow.presentation.screens.inventory
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -24,9 +26,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.palletflow.data.local.entity.Item
 import com.palletflow.data.local.entity.ItemType
+import com.palletflow.presentation.common.ItemContextMenu
+import com.palletflow.presentation.navigation.Screen
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -42,18 +47,41 @@ private val ImagePlaceholderColor = Color(0xFF2C2C2E)
 fun InventoryScreen(
     onItemClick: (itemId: String) -> Unit,
     onAddClick: () -> Unit,
+    navController: NavHostController,
     viewModel: InventoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    InventoryScreenContent(
-        uiState = uiState,
-        onItemClick = onItemClick,
-        onAddClick = onAddClick,
-        onSearchQueryChange = viewModel::onSearchQueryChange,
-        onTypeFilterChange = viewModel::onTypeFilterChange,
-        onRetryClick = { viewModel.loadItems() }
-    )
+    LaunchedEffect(Unit) {
+        viewModel.deleteEvent.collect { event ->
+            when (event) {
+                is DeleteEvent.Error -> {
+                    snackbarHostState.showSnackbar(event.message)
+                }
+                DeleteEvent.Success -> {
+                    // List updates automatically via Flow
+                }
+            }
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = DarkBackground
+    ) { paddingValues ->
+        InventoryScreenContent(
+            uiState = uiState,
+            onItemClick = onItemClick,
+            onAddClick = onAddClick,
+            onSearchQueryChange = viewModel::onSearchQueryChange,
+            onTypeFilterChange = viewModel::onTypeFilterChange,
+            onRetryClick = { viewModel.loadItems() },
+            onDeleteClick = viewModel::deleteItem,
+            navController = navController,
+            modifier = Modifier.padding(paddingValues)
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,12 +92,17 @@ fun InventoryScreenContent(
     onAddClick: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onTypeFilterChange: (ItemType?) -> Unit,
-    onRetryClick: () -> Unit
+    onRetryClick: () -> Unit,
+    onDeleteClick: (Item) -> Unit,
+    navController: NavHostController,
+    modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
+    var selectedItem by remember { mutableStateOf<Item?>(null) }
+    var showContextMenu by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(DarkBackground)
     ) {
@@ -239,9 +272,14 @@ fun InventoryScreenContent(
                 }
                 else -> {
                     items(uiState.filteredItems, key = { it.id }) { item ->
-                        InventoryItemCard(item) {
-                            onItemClick(item.id)
-                        }
+                        InventoryItemCard(
+                            item = item,
+                            onClick = { onItemClick(item.id) },
+                            onLongClick = {
+                                selectedItem = item
+                                showContextMenu = true
+                            }
+                        )
                     }
                 }
             }
@@ -285,11 +323,31 @@ fun InventoryScreenContent(
                 )
             }
         }
+
+        if (showContextMenu && selectedItem != null) {
+            ItemContextMenu(
+                item = selectedItem!!,
+                onDismiss = {
+                    showContextMenu = false
+                    selectedItem = null
+                },
+                onEditClick = { itemId ->
+                    navController.navigate(Screen.EditItem.createRoute(itemId))
+                },
+                onDeleteClick = { item ->
+                    onDeleteClick(item)
+                }
+            )
+        }
     }
 }
 
 @Composable
-fun InventoryItemCard(item: Item, onClick: () -> Unit) {
+fun InventoryItemCard(
+    item: Item,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
     val dateAdded = remember(item.createdAt) {
         val sdf = SimpleDateFormat("MMM dd", Locale.getDefault())
         sdf.format(Date(item.createdAt))
@@ -299,7 +357,13 @@ fun InventoryItemCard(item: Item, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clickable { onClick() },
+            .clip(RoundedCornerShape(16.dp))
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onClick() },
+                    onLongPress = { onLongClick() }
+                )
+            },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceColor)
     ) {
@@ -370,12 +434,5 @@ fun InventoryItemCard(item: Item, onClick: () -> Unit) {
 @Preview(showBackground = true)
 @Composable
 fun InventoryScreenPreview() {
-    InventoryScreenContent(
-        uiState = InventoryUiState(),
-        onItemClick = {},
-        onAddClick = {},
-        onSearchQueryChange = {},
-        onTypeFilterChange = {},
-        onRetryClick = {}
-    )
+    // Note: This preview might need mocks for navController and uiState
 }

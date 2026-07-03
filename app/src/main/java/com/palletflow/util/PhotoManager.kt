@@ -43,4 +43,19 @@ class PhotoManager(private val context: Context) {
             null
         }
     }
+
+    fun deletePhoto(path: String?): Boolean {
+        if (path == null) return true
+        return try {
+            val file = File(path)
+            if (file.exists()) {
+                file.delete()
+            } else {
+                true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }

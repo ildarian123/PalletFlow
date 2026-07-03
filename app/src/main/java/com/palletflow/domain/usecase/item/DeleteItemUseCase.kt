@@ -8,6 +8,6 @@ class DeleteItemUseCase @Inject constructor(
     private val repository: ItemRepository
 ) {
     suspend operator fun invoke(item: Item): Result<Unit> {
-        return repository.deleteItem(item)
+        return repository.deleteItem(item, deletePhoto = true)
     }
 }
