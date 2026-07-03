@@ -8,9 +8,10 @@ import com.palletflow.data.local.entity.Item
 import com.palletflow.domain.repository.ItemRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ItemDetailViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
@@ -19,26 +20,26 @@ class ItemDetailViewModel @Inject constructor(
 ) : ViewModel() {
     private val itemId: String = checkNotNull(savedStateHandle["id"])
 
-    private val _uiState = MutableStateFlow(ItemDetailUiState())
-    val uiState = _uiState.asStateFlow()
-
-    init {
-        loadItem()
-    }
-
-    private fun loadItem() {
-        viewModelScope.launch {
-            val userId = authPreferences.getUserId() ?: return@launch
+    val uiState: StateFlow<ItemDetailUiState> = flow {
+        val userId = authPreferences.getUserId()
+        emit(userId)
+    }.flatMapLatest { userId ->
+        if (userId == null) {
+            flowOf(ItemDetailUiState(error = "User not logged in", isLoading = false))
+        } else {
             itemRepository.getItem(itemId, userId)
-                .onEach { item ->
-                    _uiState.update { it.copy(item = item, isLoading = false) }
+                .map { item ->
+                    ItemDetailUiState(item = item, isLoading = false)
                 }
                 .catch { e ->
-                    _uiState.update { it.copy(error = e.message, isLoading = false) }
+                    emit(ItemDetailUiState(error = e.message, isLoading = false))
                 }
-                .collect()
         }
-    }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ItemDetailUiState(isLoading = true)
+    )
 }
 
 data class ItemDetailUiState(
