@@ -3,8 +3,10 @@ package com.palletflow.presentation.navigation
 import androidx.compose.runtime.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.palletflow.presentation.screens.auth.LoginScreen
 import com.palletflow.presentation.screens.auth.LoginViewModel
 import com.palletflow.presentation.screens.auth.RegisterScreen
@@ -162,7 +164,12 @@ fun AppNavGraph(navController: NavHostController) {
             )
         }
 
-        composable(Screen.ItemDetail.route) {
+        composable(
+            route = Screen.ItemDetail.route,
+            arguments = listOf(
+                navArgument("itemId") { type = NavType.StringType }
+            )
+        ) {
             ItemDetailScreen(
                 onBackClick = { navController.popBackStack() },
                 onEditClick = { itemId ->
@@ -175,16 +182,17 @@ fun AppNavGraph(navController: NavHostController) {
             )
         }
 
-        composable(Screen.EditItem.route) {
+        composable(
+            route = Screen.EditItem.route,
+            arguments = listOf(
+                navArgument("itemId") { type = NavType.StringType }
+            )
+        ) {
             EditItemScreen(
                 onBackClick = { navController.popBackStack() },
-                onSaveClick = { 
-                    // Handle save
-                    navController.popBackStack()
-                },
+                onSaveClick = { navController.popBackStack() },
                 onDeleteClick = {
-                    // Handle delete
-                    navController.popBackStack()
+                    navController.popBackStack(Screen.Inventory.route, inclusive = false)
                 }
             )
         }

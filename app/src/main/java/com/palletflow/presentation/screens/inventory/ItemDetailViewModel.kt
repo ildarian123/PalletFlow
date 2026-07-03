@@ -18,7 +18,7 @@ class ItemDetailViewModel @Inject constructor(
     private val authPreferences: AuthPreferences,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
-    private val itemId: String = checkNotNull(savedStateHandle["id"])
+    private val itemId: String = checkNotNull(savedStateHandle["itemId"])
 
     val uiState: StateFlow<ItemDetailUiState> = flow {
         val userId = authPreferences.getUserId()

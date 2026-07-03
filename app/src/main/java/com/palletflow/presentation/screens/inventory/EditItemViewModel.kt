@@ -33,7 +33,7 @@ class EditItemViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val itemId: String = checkNotNull(savedStateHandle["id"]) {
+    private val itemId: String = checkNotNull(savedStateHandle["itemId"]) {
         "itemId is required for EditItemScreen"
     }
 
