@@ -13,7 +13,7 @@ class ItemRepositoryImpl @Inject constructor(
     private val itemDao: ItemDao
 ) : ItemRepository {
 
-    override fun getItems(userId: String): Flow<List<Item>> =
+    override fun getAllItems(userId: String): Flow<List<Item>> =
         itemDao.getAllItemsByUser(userId)
 
     override fun getItem(id: String, userId: String): Flow<Item?> = flow {

@@ -1,12 +1,12 @@
 package com.palletflow.presentation.screens.inventory
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,13 +16,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import kotlinx.coroutines.delay
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import com.palletflow.data.local.entity.Item
+import com.palletflow.data.local.entity.ItemType
+import java.text.SimpleDateFormat
+import java.util.*
 
 private val DarkBackground = Color(0xFF121212)
 private val SurfaceColor = Color(0xFF1E1E1E)
@@ -34,18 +40,19 @@ private val ImagePlaceholderColor = Color(0xFF2C2C2E)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryScreen(
-    onItemClick: (Int) -> Unit = {},
-    onAddClick: () -> Unit = {},
-    onWarehouseListClick: () -> Unit = {},
+    onItemClick: (itemId: String) -> Unit,
+    onAddClick: () -> Unit,
     viewModel: InventoryViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     InventoryScreenContent(
         uiState = uiState,
         onItemClick = onItemClick,
         onAddClick = onAddClick,
-        onWarehouseListClick = onWarehouseListClick
+        onSearchQueryChange = viewModel::onSearchQueryChange,
+        onTypeFilterChange = viewModel::onTypeFilterChange,
+        onRetryClick = { viewModel.loadItems() }
     )
 }
 
@@ -53,30 +60,13 @@ fun InventoryScreen(
 @Composable
 fun InventoryScreenContent(
     uiState: InventoryUiState,
-    onItemClick: (Int) -> Unit = {},
-    onAddClick: () -> Unit = {},
-    onWarehouseListClick: () -> Unit = {}
+    onItemClick: (itemId: String) -> Unit,
+    onAddClick: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onTypeFilterChange: (ItemType?) -> Unit,
+    onRetryClick: () -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    var debouncedQuery by remember { mutableStateOf("") }
-    var selectedWarehouseIndex by remember { mutableIntStateOf(0) }
     val focusManager = LocalFocusManager.current
-    val warehouses = uiState.warehouses
-
-    // Debounce logic
-    LaunchedEffect(searchQuery) {
-        delay(1000)
-        debouncedQuery = searchQuery
-    }
-
-    val filteredItems = remember(debouncedQuery, selectedWarehouseIndex, uiState.items) {
-        uiState.items.filter { item ->
-            val matchesQuery = item.name.contains(debouncedQuery, ignoreCase = true)
-            val matchesWarehouse = if (selectedWarehouseIndex == 0) true 
-                                   else item.warehouse == warehouses.getOrNull(selectedWarehouseIndex)
-            matchesQuery && matchesWarehouse
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -90,8 +80,8 @@ fun InventoryScreenContent(
             // 1. Search Bar
             item {
                 OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    value = uiState.searchQuery,
+                    onValueChange = onSearchQueryChange,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -100,9 +90,9 @@ fun InventoryScreenContent(
                     placeholder = { Text("Search items...", color = TextSecondary) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary) },
                     trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
+                        if (uiState.searchQuery.isNotEmpty()) {
                             IconButton(onClick = {
-                                searchQuery = ""
+                                onSearchQueryChange("")
                                 focusManager.clearFocus()
                             }) {
                                 Icon(
@@ -124,79 +114,135 @@ fun InventoryScreenContent(
                 )
             }
 
-            // 2. Warehouse Filter Chips
+            // 2. Type Filter Chips
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 8.dp)
+                        .horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Spacer(modifier = Modifier.width(16.dp))
-                    Surface(
-                        modifier = Modifier
-                            .size(height = 32.dp, width = 48.dp)
-                            .clickable { onWarehouseListClick() },
-                        color = SurfaceColor,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, AccentColor)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Warehouse,
-                                contentDescription = "Warehouses",
-                                tint = AccentColor,
-                                modifier = Modifier.size(20.dp)
-                            )
+                    
+                    FilterChip(
+                        selected = uiState.selectedTypeFilter == null,
+                        onClick = { onTypeFilterChange(null) },
+                        label = { Text("All") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = SurfaceColor,
+                            labelColor = TextSecondary,
+                            selectedContainerColor = AccentColor,
+                            selectedLabelColor = DarkBackground
+                        ),
+                        border = null,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    FilterChip(
+                        selected = uiState.selectedTypeFilter == ItemType.SINGLE_PRODUCT,
+                        onClick = { onTypeFilterChange(ItemType.SINGLE_PRODUCT) },
+                        label = { Text("Single Product") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = SurfaceColor,
+                            labelColor = TextSecondary,
+                            selectedContainerColor = AccentColor,
+                            selectedLabelColor = DarkBackground
+                        ),
+                        border = null,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    FilterChip(
+                        selected = uiState.selectedTypeFilter == ItemType.PALLET,
+                        onClick = { onTypeFilterChange(ItemType.PALLET) },
+                        label = { Text("Pallet") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = SurfaceColor,
+                            labelColor = TextSecondary,
+                            selectedContainerColor = AccentColor,
+                            selectedLabelColor = DarkBackground
+                        ),
+                        border = null,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            }
+
+            // 3. States: Loading, Error, Empty, or List
+            when {
+                uiState.isLoading -> {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 100.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = AccentColor)
                         }
                     }
-//                    LazyRow(
-//                        contentPadding = PaddingValues(start = 8.dp, end = 16.dp),
-//                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-//                        verticalAlignment = Alignment.CenterVertically
-//                    ) {
-//                        items(warehouses.size) { index ->
-//                            val isSelected = selectedWarehouseIndex == index
-//                            FilterChip(
-//                                selected = isSelected,
-//                                onClick = { selectedWarehouseIndex = index },
-//                                label = { Text(warehouses[index]) },
-//                                colors = FilterChipDefaults.filterChipColors(
-//                                    containerColor = SurfaceColor,
-//                                    labelColor = TextSecondary,
-//                                    selectedContainerColor = AccentColor,
-//                                    selectedLabelColor = DarkBackground
-//                                ),
-//                                border = null,
-//                                shape = RoundedCornerShape(12.dp)
-//                            )
-//                        }
-//                    }
                 }
-            }
-
-            // 3. Loading State
-            if (uiState.isLoading) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = AccentColor)
+                uiState.error != null -> {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 100.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(uiState.error, color = Color(0xFFFF453A))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = onRetryClick,
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
+                            ) {
+                                Text("Retry", color = Color.White)
+                            }
+                        }
                     }
                 }
-            }
-
-            // 4. Empty State
-            if (!uiState.isLoading && filteredItems.isEmpty()) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        Text("No items found", color = TextSecondary)
+                uiState.filteredItems.isEmpty() -> {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 100.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Inventory,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = ImagePlaceholderColor
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                if (uiState.searchQuery.isBlank()) "No items yet" else "No items match your search",
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (uiState.searchQuery.isBlank()) {
+                                Text(
+                                    "Tap + to add your first item",
+                                    color = TextSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
                 }
-            }
-
-            // 5. Items List
-            items(filteredItems) { item ->
-                InventoryItemCard(item) {
-                    onItemClick(item.id)
+                else -> {
+                    items(uiState.filteredItems, key = { it.id }) { item ->
+                        InventoryItemCard(item) {
+                            onItemClick(item.id)
+                        }
+                    }
                 }
             }
         }
@@ -243,7 +289,12 @@ fun InventoryScreenContent(
 }
 
 @Composable
-fun InventoryItemCard(item: InventoryItem, onClick: () -> Unit) {
+fun InventoryItemCard(item: Item, onClick: () -> Unit) {
+    val dateAdded = remember(item.createdAt) {
+        val sdf = SimpleDateFormat("MMM dd", Locale.getDefault())
+        sdf.format(Date(item.createdAt))
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -258,7 +309,7 @@ fun InventoryItemCard(item: InventoryItem, onClick: () -> Unit) {
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left: Square image placeholder
+            // Left: Photo
             Box(
                 modifier = Modifier
                     .size(64.dp)
@@ -266,7 +317,16 @@ fun InventoryItemCard(item: InventoryItem, onClick: () -> Unit) {
                     .background(ImagePlaceholderColor),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
+                if (item.photoPath != null) {
+                    AsyncImage(
+                        model = item.photoPath,
+                        contentDescription = item.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
+                }
             }
 
             Spacer(modifier = Modifier.width(12.dp))
@@ -274,15 +334,34 @@ fun InventoryItemCard(item: InventoryItem, onClick: () -> Unit) {
             // Center: Details
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("Lot ${item.lotNumber}", color = TextSecondary, fontSize = 12.sp)
-                Text(item.warehouse, color = TextSecondary, fontSize = 12.sp)
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Type Badge
+                    Surface(
+                        color = if (item.type == ItemType.PALLET) AccentColor else ImagePlaceholderColor,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = if (item.type == ItemType.PALLET) "Pallet" else "Product",
+                            color = if (item.type == ItemType.PALLET) DarkBackground else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    
+                    if (!item.sku.isNullOrBlank()) {
+                        Text(item.sku, color = TextSecondary, fontSize = 12.sp)
+                    }
+                }
             }
 
-            // Right: Qty and Price
+            // Right: Date Added
             Column(horizontalAlignment = Alignment.End) {
-                Text(item.quantity, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(item.price, color = TextSecondary, fontSize = 12.sp)
-                Text(item.profit, color = AccentColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(dateAdded, color = TextSecondary, fontSize = 12.sp)
             }
         }
     }
@@ -292,12 +371,11 @@ fun InventoryItemCard(item: InventoryItem, onClick: () -> Unit) {
 @Composable
 fun InventoryScreenPreview() {
     InventoryScreenContent(
-        uiState = InventoryUiState(
-            items = listOf(
-                InventoryItem(1, "Wireless Headphones Z1", "#1042", "Warehouse 1", "x24", "$12.50", "+ $8.00"),
-                InventoryItem(2, "Mechanical Keyboard", "#1038", "Warehouse 1", "x12", "$8.00", "+ $5.50")
-            ),
-            warehouses = listOf("All Warehouses", "Warehouse 1")
-        )
+        uiState = InventoryUiState(),
+        onItemClick = {},
+        onAddClick = {},
+        onSearchQueryChange = {},
+        onTypeFilterChange = {},
+        onRetryClick = {}
     )
 }

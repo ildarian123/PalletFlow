@@ -144,11 +144,7 @@ fun AppNavGraph(navController: NavHostController) {
                     navController.navigate(Screen.AddItem.route)
                 },
                 onItemClick = { itemId ->
-                    // TODO: Replace hardcoded ID with real itemId when data is connected
                     navController.navigate(Screen.ItemDetail.createRoute(itemId))
-                },
-                onWarehouseListClick = {
-                    navController.navigate(Screen.WarehouseList.route)
                 },
                 rootNavController = navController
             )
@@ -169,11 +165,12 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.ItemDetail.route) {
             ItemDetailScreen(
                 onBackClick = { navController.popBackStack() },
-                onEditClick = { 
-                    // TODO: Replace hardcoded ID with real itemId when data is connected
-                    navController.navigate(Screen.EditItem.createRoute(1))
+                onEditClick = { itemId ->
+                    navController.navigate(Screen.EditItem.createRoute(itemId))
                 },
-                onSellClick = { /* Handle sell */ },
+                onSellClick = { itemId ->
+                    // Handle sell
+                },
                 onLotClick = { /* Handle lot click */ }
             )
         }

@@ -18,4 +18,10 @@ object AppModule {
     fun provideAuthPreferences(@ApplicationContext context: Context): AuthPreferences {
         return AuthPreferences(context)
     }
+
+    @Provides
+    @Singleton
+    fun provideLocalFileHelper(@ApplicationContext context: Context): com.palletflow.util.LocalFileHelper {
+        return com.palletflow.util.LocalFileHelper(context)
+    }
 }

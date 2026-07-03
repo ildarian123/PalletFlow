@@ -1,10 +1,12 @@
 package com.palletflow.presentation.screens.inventory
 
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.palletflow.data.local.entity.ItemType
 import com.palletflow.domain.usecase.item.CreateItemUseCase
+import com.palletflow.util.LocalFileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +18,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AddItemViewModel @Inject constructor(
-    private val createItemUseCase: CreateItemUseCase
+    private val createItemUseCase: CreateItemUseCase,
+    private val localFileHelper: LocalFileHelper
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AddItemUiState())
@@ -52,12 +55,21 @@ class AddItemViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
+                // Save photo to internal storage if it's a Uri string
+                val finalPhotoPath = state.photoPath?.let { path ->
+                    if (path.startsWith("content://") || path.startsWith("file://")) {
+                        localFileHelper.saveImageToInternalStorage(Uri.parse(path))
+                    } else {
+                        path
+                    }
+                }
+
                 val result = createItemUseCase(
                     name = state.name,
                     type = state.type,
                     sku = state.sku.ifBlank { null },
                     notes = state.notes.ifBlank { null },
-                    photoPath = state.photoPath
+                    photoPath = finalPhotoPath
                 )
                 if (result.isSuccess) {
                     _uiState.update { it.copy(isLoading = false) }
