@@ -8,7 +8,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,6 +45,7 @@ fun EditItemScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var typeExpanded by remember { mutableStateOf(false) }
 
     if (uiState.isLoading) {
         Box(Modifier.fillMaxSize().background(DarkBackground), contentAlignment = Alignment.Center) {
@@ -164,20 +164,58 @@ fun EditItemScreen(
 
             // Card 1 — Basic Info
             EditSectionCard(title = "Basic Info") {
-                PalletTextField(label = "Item Name", value = uiState.name)
-                
-                // Type Dropdown (Simplified display for Task 2)
                 PalletTextField(
-                    label = "Type",
-                    value = when(uiState.type) {
-                        ItemType.SINGLE_PRODUCT -> "Single Product"
-                        ItemType.PALLET -> "Pallet"
-                        ItemType.TRUCKLOAD -> "Truckload"
-                    },
-                    readOnly = true
+                    label = "Item Name",
+                    value = uiState.name,
+                    onValueChange = viewModel::onNameChange,
+                    isError = uiState.nameError != null,
+                    supportingText = uiState.nameError?.let { { Text(it, color = ErrorColor) } }
                 )
+                
+                // Type Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = typeExpanded,
+                    onExpandedChange = { typeExpanded = !typeExpanded }
+                ) {
+                    PalletTextField(
+                        label = "Type",
+                        value = when(uiState.type) {
+                            ItemType.SINGLE_PRODUCT -> "Single Product"
+                            ItemType.PALLET -> "Pallet"
+                            ItemType.TRUCKLOAD -> "Truckload"
+                        },
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = typeExpanded,
+                        onDismissRequest = { typeExpanded = false },
+                        modifier = Modifier.background(SurfaceColor)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Single Product", color = TextPrimary) },
+                            onClick = {
+                                viewModel.onTypeChange(ItemType.SINGLE_PRODUCT)
+                                typeExpanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Pallet", color = TextPrimary) },
+                            onClick = {
+                                viewModel.onTypeChange(ItemType.PALLET)
+                                typeExpanded = false
+                            }
+                        )
+                    }
+                }
 
-                PalletTextField(label = "SKU / Barcode", value = uiState.sku)
+                PalletTextField(
+                    label = "SKU / Barcode",
+                    value = uiState.sku,
+                    onValueChange = viewModel::onSkuChange
+                )
             }
 
             // Card 4 — Notes
@@ -185,6 +223,7 @@ fun EditItemScreen(
                 PalletTextField(
                     label = "Notes",
                     value = uiState.notes,
+                    onValueChange = viewModel::onNotesChange,
                     singleLine = false,
                     modifier = Modifier.heightIn(min = 80.dp)
                 )
@@ -240,10 +279,13 @@ fun EditSectionCard(title: String, content: @Composable ColumnScope.() -> Unit) 
 fun PalletTextField(
     label: String,
     value: String,
+    onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     singleLine: Boolean = true,
     readOnly: Boolean = false,
-    onValueChange: (String) -> Unit = {}
+    isError: Boolean = false,
+    supportingText: @Composable (() -> Unit)? = null,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
     OutlinedTextField(
         value = value,
@@ -253,6 +295,9 @@ fun PalletTextField(
         shape = RoundedCornerShape(12.dp),
         singleLine = singleLine,
         readOnly = readOnly,
+        isError = isError,
+        supportingText = supportingText,
+        trailingIcon = trailingIcon,
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = TextPrimary,
             unfocusedTextColor = TextPrimary,

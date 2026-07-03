@@ -59,10 +59,27 @@ class EditItemViewModel @Inject constructor(
             }
         }
     }
+
+    fun onNameChange(name: String) {
+        _uiState.update { it.copy(name = name, nameError = null) }
+    }
+
+    fun onTypeChange(type: ItemType) {
+        _uiState.update { it.copy(type = type) }
+    }
+
+    fun onSkuChange(sku: String) {
+        _uiState.update { it.copy(sku = sku) }
+    }
+
+    fun onNotesChange(notes: String) {
+        _uiState.update { it.copy(notes = notes) }
+    }
 }
 
 data class EditItemUiState(
     val name: String = "",
+    val nameError: String? = null,
     val type: ItemType = ItemType.SINGLE_PRODUCT,
     val sku: String = "",
     val notes: String = "",
