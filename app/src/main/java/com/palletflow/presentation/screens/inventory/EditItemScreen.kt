@@ -80,7 +80,16 @@ fun EditItemScreen(
         }
     }
 
-    if (uiState.isLoading) {
+    LaunchedEffect(Unit) {
+        viewModel.event.collect { event ->
+            when (event) {
+                is EditItemEvent.SaveSuccess -> onSaveClick()
+                is EditItemEvent.DeleteSuccess -> onDeleteClick()
+            }
+        }
+    }
+
+    if (uiState.isLoading && !uiState.isLoaded) {
         Box(Modifier.fillMaxSize().background(DarkBackground), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = AccentTeal)
         }
@@ -103,7 +112,7 @@ fun EditItemScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
-                    onDeleteClick()
+                    viewModel.delete()
                 }) {
                     Text("Delete", color = ErrorColor)
                 }
@@ -127,8 +136,16 @@ fun EditItemScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = onSaveClick) {
-                        Text("Save", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    if (uiState.isLoading && uiState.isLoaded) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp).padding(end = 16.dp),
+                            color = AccentTeal,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        TextButton(onClick = viewModel::save) {
+                            Text("Save", color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
