@@ -1,6 +1,7 @@
 package com.palletflow.presentation.navigation
 
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -136,7 +137,7 @@ fun AppNavGraph(navController: NavHostController) {
         }
         
         composable(Screen.Dashboard.route) {
-            var currentTab by remember { mutableStateOf(BottomNavTab.Dashboard) }
+            var currentTab by rememberSaveable { mutableStateOf(BottomNavTab.Dashboard) }
             
             DashboardScreen(
                 onReceiveLotClick = { navController.navigate(Screen.ReceiveNewLot.route) },
@@ -201,7 +202,7 @@ fun AppNavGraph(navController: NavHostController) {
                 onBackClick = { navController.popBackStack() },
                 onSaveClick = { navController.popBackStack() },
                 onDeleteClick = {
-                    navController.popBackStack(Screen.Inventory.route, inclusive = false)
+                    navController.popBackStack(Screen.Dashboard.route, inclusive = false)
                 }
             )
         }
