@@ -1,13 +1,14 @@
 package com.palletflow.presentation.screens.inventory
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +26,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.palletflow.data.local.entity.ItemType
+import com.palletflow.presentation.common.PhotoPickerSheet
+import com.palletflow.util.PhotoManager
 import java.io.File
 
 private val DarkBackground = Color(0xFF121212)
@@ -46,6 +49,36 @@ fun EditItemScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var typeExpanded by remember { mutableStateOf(false) }
+    
+    // Photo Editing State
+    var showPhotoSheet by remember { mutableStateOf(false) }
+    var cameraUri by remember { mutableStateOf<Uri?>(null) }
+    val context = LocalContext.current
+    val photoManager = remember { PhotoManager(context) }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            val savedPath = photoManager.savePhotoFromUri(it)
+            if (savedPath != null) {
+                viewModel.onPhotoPathChange(savedPath)
+            }
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success) {
+            cameraUri?.let { uri ->
+                val savedPath = photoManager.savePhotoFromUri(uri)
+                if (savedPath != null) {
+                    viewModel.onPhotoPathChange(savedPath)
+                }
+            }
+        }
+    }
 
     if (uiState.isLoading) {
         Box(Modifier.fillMaxSize().background(DarkBackground), contentAlignment = Alignment.Center) {
@@ -112,53 +145,57 @@ fun EditItemScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Photo area
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(ImagePlaceholder),
-                contentAlignment = Alignment.Center
-            ) {
-                if (uiState.photoPath != null) {
+            if (uiState.photoPath != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                ) {
                     AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
+                        model = ImageRequest.Builder(context)
                             .data(File(uiState.photoPath!!))
                             .crossfade(true)
                             .build(),
-                        contentDescription = "Item photo",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp)
-                            .clip(RoundedCornerShape(16.dp)),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Image,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = TextSecondary
-                    )
+                    // Edit overlay button bottom-right
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(AccentTeal)
+                            .clickable { showPhotoSheet = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Change photo",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
-                
-                // Edit overlay button
+            } else {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(12.dp)
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(AccentTeal)
-                        .clickable { /* Handle photo edit */ },
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(SurfaceColor)
+                        .border(1.dp, TextSecondary, RoundedCornerShape(16.dp))
+                        .clickable { showPhotoSheet = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Edit Photo",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.CameraAlt, null, tint = TextSecondary, modifier = Modifier.size(32.dp))
+                        Spacer(Modifier.height(8.dp))
+                        Text("Tap to add photo", color = TextSecondary, fontSize = 14.sp)
+                    }
                 }
             }
 
@@ -255,6 +292,18 @@ fun EditItemScreen(
                 )
             }
         }
+    }
+
+    if (showPhotoSheet) {
+        PhotoPickerSheet(
+            onDismiss = { showPhotoSheet = false },
+            onGalleryClick = { galleryLauncher.launch("image/*") },
+            onCameraClick = {
+                val uri = photoManager.createCameraImageUri()
+                cameraUri = uri
+                uri?.let { cameraLauncher.launch(it) }
+            }
+        )
     }
 }
 

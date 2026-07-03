@@ -75,6 +75,10 @@ class EditItemViewModel @Inject constructor(
     fun onNotesChange(notes: String) {
         _uiState.update { it.copy(notes = notes) }
     }
+
+    fun onPhotoPathChange(path: String?) {
+        _uiState.update { it.copy(photoPath = path) }
+    }
 }
 
 data class EditItemUiState(
