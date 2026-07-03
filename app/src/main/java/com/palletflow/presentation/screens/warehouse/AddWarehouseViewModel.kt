@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.domain.usecase.warehouse.CreateWarehouseUseCase
 import com.palletflow.domain.usecase.warehouse.DeleteWarehouseUseCase
 import com.palletflow.domain.usecase.warehouse.GetWarehouseUseCase
@@ -27,6 +28,7 @@ class AddWarehouseViewModel @Inject constructor(
     private val updateWarehouseUseCase: UpdateWarehouseUseCase,
     private val deleteWarehouseUseCase: DeleteWarehouseUseCase,
     private val getWarehouseUseCase: GetWarehouseUseCase,
+    private val authPreferences: AuthPreferences,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -126,10 +128,11 @@ class AddWarehouseViewModel @Inject constructor(
 
     fun delete() {
         val id = warehouseId ?: return
+        val userId = authPreferences.getUserId() ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val result = deleteWarehouseUseCase(id)
+                val result = deleteWarehouseUseCase(id, userId)
                 if (result.isSuccess) {
                     _uiState.update { it.copy(isLoading = false) }
                     _actionEvent.trySend(WarehouseAction.DELETE)
