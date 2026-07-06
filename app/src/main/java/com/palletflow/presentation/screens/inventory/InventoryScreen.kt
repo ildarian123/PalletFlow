@@ -92,7 +92,10 @@ fun InventoryScreen(
                     contentColor = Color.White,
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add")
+                    Icon(
+                        imageVector = if (fabExpanded) Icons.Default.Close else Icons.Default.Add,
+                        contentDescription = "Add"
+                    )
                 }
                 DropdownMenu(
                     expanded = fabExpanded,
@@ -100,14 +103,16 @@ fun InventoryScreen(
                     modifier = Modifier.background(SurfaceColor)
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Item", color = TextPrimary) },
+                        text = { Text("New Item", color = TextPrimary) },
+                        leadingIcon = { Icon(Icons.Default.Inventory, null, tint = AccentColor) },
                         onClick = {
                             fabExpanded = false
                             onAddClick()
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Warehouse", color = TextPrimary) },
+                        text = { Text("New Warehouse", color = TextPrimary) },
+                        leadingIcon = { Icon(Icons.Default.Warehouse, null, tint = AccentColor) },
                         onClick = {
                             fabExpanded = false
                             navController.navigate(Screen.NewWarehouse.route)
