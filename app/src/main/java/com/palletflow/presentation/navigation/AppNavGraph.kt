@@ -200,10 +200,7 @@ fun AppNavGraph(navController: NavHostController) {
         ) {
             EditItemScreen(
                 onBackClick = { navController.popBackStack() },
-                onSaveClick = { navController.popBackStack() },
-                onDeleteClick = {
-                    navController.popBackStack(Screen.Dashboard.route, inclusive = false)
-                }
+                onSaveClick = { navController.popBackStack() }
             )
         }
 

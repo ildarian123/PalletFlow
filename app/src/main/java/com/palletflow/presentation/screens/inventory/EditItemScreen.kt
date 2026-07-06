@@ -43,11 +43,9 @@ private val ErrorColor = Color(0xFFFF453A)
 fun EditItemScreen(
     onBackClick: () -> Unit = {},
     onSaveClick: () -> Unit = {},
-    onDeleteClick: () -> Unit = {},
     viewModel: EditItemViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showDeleteDialog by remember { mutableStateOf(false) }
     var typeExpanded by remember { mutableStateOf(false) }
     
     // Photo Editing State
@@ -84,7 +82,7 @@ fun EditItemScreen(
         viewModel.event.collect { event ->
             when (event) {
                 is EditItemEvent.SaveSuccess -> onSaveClick()
-                is EditItemEvent.DeleteSuccess -> onDeleteClick()
+                is EditItemEvent.DeleteSuccess -> { /* No longer used here */ }
             }
         }
     }
@@ -101,28 +99,6 @@ fun EditItemScreen(
             Text(uiState.error ?: "", color = ErrorColor)
         }
         return
-    }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            containerColor = SurfaceColor,
-            title = { Text("Delete Item?", color = TextPrimary) },
-            text = { Text("This action cannot be undone.", color = TextSecondary) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    viewModel.delete()
-                }) {
-                    Text("Delete", color = ErrorColor)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = TextSecondary)
-                }
-            }
-        )
     }
 
     Scaffold(
@@ -280,32 +256,6 @@ fun EditItemScreen(
                     onValueChange = viewModel::onNotesChange,
                     singleLine = false,
                     modifier = Modifier.heightIn(min = 80.dp)
-                )
-            }
-
-            // Delete section
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                HorizontalDivider(color = ImagePlaceholder, thickness = 1.dp)
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorColor),
-                    border = BorderStroke(1.dp, ErrorColor),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Delete Item", fontWeight = FontWeight.Bold)
-                }
-                Text(
-                    "This will permanently remove the item",
-                    color = TextSecondary,
-                    fontSize = 12.sp
                 )
             }
         }
