@@ -27,14 +27,12 @@ private val AccentTeal = Color(0xFF00C2A0)
 private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val BorderColor = Color(0xFF2C2C2E)
-private val ErrorRed = Color(0xFFFF453A)
 private val WarningOrange = Color(0xFFFF9500)
 
 @Composable
 fun EditWarehouseScreen(
     onBackClick: () -> Unit = {},
     onSaveClick: () -> Unit = {},
-    onDeleteClick: () -> Unit = {},
     viewModel: AddWarehouseViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -43,7 +41,7 @@ fun EditWarehouseScreen(
         viewModel.actionEvent.collect { action ->
             when (action) {
                 WarehouseAction.SAVE -> onSaveClick()
-                WarehouseAction.DELETE -> onDeleteClick()
+                WarehouseAction.DELETE -> { /* No longer used here */ }
             }
         }
     }
@@ -52,7 +50,6 @@ fun EditWarehouseScreen(
         uiState = uiState,
         onBackClick = onBackClick,
         onSaveClick = viewModel::save,
-        onDeleteConfirm = viewModel::delete,
         onNameChange = viewModel::onNameChange,
         onAddressChange = viewModel::onAddressChange,
         onDescriptionChange = viewModel::onDescriptionChange,
@@ -66,36 +63,11 @@ fun EditWarehouseContent(
     uiState: AddWarehouseUiState,
     onBackClick: () -> Unit,
     onSaveClick: () -> Unit,
-    onDeleteConfirm: () -> Unit,
     onNameChange: (String) -> Unit,
     onAddressChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
     onActiveChange: (Boolean) -> Unit
 ) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            containerColor = SurfaceColor,
-            title = { Text("Delete Warehouse?", color = TextPrimary) },
-            text = { Text("Items inside will become unassigned. This cannot be undone.", color = TextSecondary) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    onDeleteConfirm()
-                }) {
-                    Text("Delete", color = ErrorRed)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = TextSecondary)
-                }
-            }
-        )
-    }
-
     Scaffold(
         containerColor = DarkBackground,
         topBar = {
@@ -230,34 +202,6 @@ fun EditWarehouseContent(
                     )
                 }
             }
-
-            // Danger Zone Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceColor)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text("Danger Zone", color = ErrorRed, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    Text(
-                        "Deleting a warehouse will not delete its items. Items will become unassigned.",
-                        color = TextSecondary,
-                        fontSize = 12.sp
-                    )
-                    OutlinedButton(
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed),
-                        border = BorderStroke(1.dp, ErrorRed),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Delete Warehouse", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
         }
     }
 }
@@ -274,7 +218,6 @@ fun EditWarehouseScreenPreview() {
         ),
         onBackClick = {},
         onSaveClick = {},
-        onDeleteConfirm = {},
         onNameChange = {},
         onAddressChange = {},
         onDescriptionChange = {},

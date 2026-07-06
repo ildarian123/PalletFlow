@@ -242,10 +242,7 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.EditWarehouse.route) {
             EditWarehouseScreen(
                 onBackClick = { navController.popBackStack() },
-                onSaveClick = { navController.popBackStack() },
-                onDeleteClick = {
-                    navController.popBackStack(Screen.WarehouseList.route, inclusive = false)
-                }
+                onSaveClick = { navController.popBackStack() }
             )
         }
 
