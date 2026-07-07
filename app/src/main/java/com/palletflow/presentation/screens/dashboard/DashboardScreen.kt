@@ -29,6 +29,7 @@ import androidx.navigation.NavHostController
 import com.palletflow.presentation.navigation.BottomNavTab
 import com.palletflow.presentation.navigation.BottomNavigationBar
 import com.palletflow.presentation.screens.inventory.InventoryScreen
+import com.palletflow.presentation.screens.sales.SalesScreen
 
 private val DarkBackground = Color(0xFF121212)
 private val SurfaceColor = Color(0xFF1E1E1E)
@@ -172,6 +173,13 @@ fun DashboardScreenContent(
                         onItemClick = onInventoryItemClick,
                         onAddClick = onAddItemClick,
                         navController = navController
+                    )
+                }
+                BottomNavTab.Transactions -> {
+                    SalesScreen(
+                        onAddLotClick = onReceiveLotClick,
+                        onAddSaleClick = onSellItemClick,
+                        onAddTransferClick = onMoveInventoryClick
                     )
                 }
                 else -> {

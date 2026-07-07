@@ -25,6 +25,7 @@ import com.palletflow.presentation.screens.warehouse.WarehouseListScreen
 import com.palletflow.presentation.screens.warehouse.AddWarehouseScreen
 import com.palletflow.presentation.screens.warehouse.WarehouseDetailScreen
 import com.palletflow.presentation.screens.warehouse.EditWarehouseScreen
+import com.palletflow.presentation.screens.sales.SalesScreen
 import com.palletflow.presentation.screens.lot.ReceiveLotScreen
 import com.palletflow.presentation.screens.sell.SellScreen
 import com.palletflow.presentation.screens.move.MoveInventoryScreen
@@ -240,6 +241,14 @@ fun AppNavGraph(navController: NavHostController) {
             EditWarehouseScreen(
                 onBackClick = { navController.popBackStack() },
                 onSaveClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Transactions.route) {
+            SalesScreen(
+                onAddLotClick = { navController.navigate(Screen.ReceiveNewLot.route) },
+                onAddSaleClick = { navController.navigate(Screen.NewSale.route) },
+                onAddTransferClick = { navController.navigate(Screen.MoveInventory.route) }
             )
         }
 
