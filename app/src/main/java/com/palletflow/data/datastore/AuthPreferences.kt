@@ -4,18 +4,26 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
-class AuthPreferences(context: Context) {
+class AuthPreferences(private val context: Context) {
 
     private val masterKey = MasterKey.Builder(context)
         .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
         .build()
 
-    private val sharedPreferences = EncryptedSharedPreferences.create(
+    private val sharedPreferences = try {
+        createSharedPreferences()
+    } catch (e: Exception) {
+        android.util.Log.e("AuthPreferences", "Error creating EncryptedSharedPreferences", e)
+        context.deleteSharedPreferences("auth_prefs")
+        createSharedPreferences()
+    }
+
+    private fun createSharedPreferences() = EncryptedSharedPreferences.create(
         context,
         "auth_prefs",
         masterKey,
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
     )
 
     fun saveCredentials(email: String, passwordHash: String, userId: String) {
