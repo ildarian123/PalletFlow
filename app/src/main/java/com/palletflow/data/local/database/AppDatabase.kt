@@ -16,9 +16,11 @@ import com.palletflow.data.local.entity.*
         LotItem::class,
         Transaction::class,
         Expense::class,
-        Item::class
+        Item::class,
+        Stock::class,
+        LotExpense::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -30,18 +32,16 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun expenseDao(): ExpenseDao
     abstract fun itemDao(): ItemDao
+    abstract fun stockDao(): StockDao
+    abstract fun lotExpenseDao(): LotExpenseDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                // Initial migration history
-            }
+            override fun migrate(db: SupportSQLiteDatabase) {}
         }
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                // Migration to version 3 to fix previous schema mismatch
-            }
+            override fun migrate(db: SupportSQLiteDatabase) {}
         }
 
         val MIGRATION_3_4 = object : Migration(3, 4) {
@@ -66,9 +66,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Drop old items table if exists
                 db.execSQL("DROP TABLE IF EXISTS `items`")
-                // Create new simplified items table
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `items` (
                         `id` TEXT NOT NULL,
@@ -83,17 +81,13 @@ abstract class AppDatabase : RoomDatabase() {
                         PRIMARY KEY(`id`)
                     )
                 """)
-                db.execSQL(
-                    "CREATE INDEX IF NOT EXISTS `index_items_userId` ON `items` (`userId`)"
-                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_items_userId` ON `items` (`userId`)")
             }
         }
 
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Drop old transactions table if exists
                 db.execSQL("DROP TABLE IF EXISTS `transactions`")
-                // Create new transactions table with the new schema
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS `transactions` (
                         `id` TEXT NOT NULL,
@@ -117,6 +111,78 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_itemId` ON `transactions` (`itemId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_lotId` ON `transactions` (`lotId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_type` ON `transactions` (`type`)")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Update Suppliers table from stub
+                db.execSQL("DROP TABLE IF EXISTS `suppliers`")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `suppliers` (
+                        `id` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `contactName` TEXT,
+                        `email` TEXT,
+                        `phone` TEXT,
+                        `address` TEXT,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """)
+
+                // Update Lots table from stub
+                db.execSQL("DROP TABLE IF EXISTS `lots`")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `lots` (
+                        `id` TEXT NOT NULL,
+                        `userId` TEXT NOT NULL,
+                        `lotNumber` TEXT NOT NULL,
+                        `supplierId` TEXT NOT NULL,
+                        `warehouseId` TEXT NOT NULL,
+                        `purchasePrice` REAL NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `notes` TEXT,
+                        `createdAt` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lots_userId` ON `lots` (`userId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lots_supplierId` ON `lots` (`supplierId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lots_warehouseId` ON `lots` (`warehouseId`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_lots_lotNumber` ON `lots` (`lotNumber`)")
+
+                // Add Stock table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `stocks` (
+                        `id` TEXT NOT NULL,
+                        `userId` TEXT NOT NULL,
+                        `itemId` TEXT NOT NULL,
+                        `warehouseId` TEXT NOT NULL,
+                        `quantity` INTEGER NOT NULL,
+                        `updatedAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stocks_userId` ON `stocks` (`userId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stocks_itemId` ON `stocks` (`itemId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stocks_warehouseId` ON `stocks` (`warehouseId`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_stocks_userId_itemId_warehouseId` ON `stocks` (`userId`, `itemId`, `warehouseId`)")
+
+                // Add LotExpense table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `lot_expenses` (
+                        `id` TEXT NOT NULL,
+                        `lotId` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `amount` REAL NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`lotId`) REFERENCES `lots`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lot_expenses_lotId` ON `lot_expenses` (`lotId`)")
             }
         }
     }

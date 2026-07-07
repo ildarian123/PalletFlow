@@ -255,7 +255,6 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.ReceiveNewLot.route) {
             ReceiveLotScreen(
                 onBackClick = { navController.popBackStack() },
-                onSaveDraftClick = { navController.popBackStack() },
                 onCompleteClick = { navController.popBackStack() },
                 onAddNewSupplierClick = { /* Navigate to Add Supplier */ },
                 onCreateNewItemClick = { navController.navigate(Screen.AddItem.route) }

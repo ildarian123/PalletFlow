@@ -10,11 +10,14 @@ interface LotDao {
     fun getAllLots(): Flow<List<Lot>>
 
     @Query("SELECT * FROM lots WHERE id = :lotId")
-    fun getLotById(lotId: Int): Flow<Lot?>
+    fun getLotById(lotId: String): Flow<Lot?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLot(lot: Lot)
 
     @Delete
     suspend fun deleteLot(lot: Lot)
+
+    @Query("SELECT * FROM lots WHERE lotNumber = :lotNumber LIMIT 1")
+    suspend fun getLotByNumber(lotNumber: String): Lot?
 }

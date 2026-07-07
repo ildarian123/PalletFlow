@@ -5,7 +5,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun LotDetailScreen(
-    lotId: Int,
+    lotId: String,
     viewModel: LotDetailViewModel = hiltViewModel()
 ) {
 }

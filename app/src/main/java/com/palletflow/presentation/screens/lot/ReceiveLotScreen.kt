@@ -12,14 +12,13 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -28,7 +27,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.palletflow.data.local.entity.Item
+import com.palletflow.data.local.entity.Supplier
+import com.palletflow.data.local.entity.Warehouse
 import kotlinx.coroutines.delay
+import java.util.*
 
 private val DarkBackground = Color(0xFF121212)
 private val SurfaceColor = Color(0xFF1E1E1E)
@@ -37,48 +42,44 @@ private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val PlaceholderColor = Color(0xFF2C2C2E)
 private val ErrorRed = Color(0xFFFF453A)
-private val InfoBlue = Color(0xFF4A90E2)
-private val WarningAmber = Color(0xFFFF9500)
-private val FuelPurple = Color(0xFF9B59B6)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ReceiveLotScreen(
     onBackClick: () -> Unit = {},
-    onSaveDraftClick: () -> Unit = {},
     onCompleteClick: () -> Unit = {},
     onAddNewSupplierClick: () -> Unit = {},
-    onCreateNewItemClick: () -> Unit = {}
+    onCreateNewItemClick: () -> Unit = {},
+    viewModel: ReceiveLotViewModel = hiltViewModel()
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var purchasePrice by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val suppliers by viewModel.suppliers.collectAsStateWithLifecycle()
+    val warehouses by viewModel.warehouses.collectAsStateWithLifecycle()
+    val availableItems by viewModel.availableItems.collectAsStateWithLifecycle()
 
+    var selectedTab by remember { mutableIntStateOf(0) }
     var showSupplierSheet by remember { mutableStateOf(false) }
     var showWarehouseSheet by remember { mutableStateOf(false) }
     var showItemSheet by remember { mutableStateOf(false) }
     var showExpenseSheet by remember { mutableStateOf(false) }
 
-    var selectedSupplier by remember { mutableStateOf<String?>(null) }
-    var selectedWarehouse by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    val items = remember {
-        mutableStateListOf(
-            LotItemData("Nike Air Max 90", "Footwear", "Used", "x3", "$45.00", WarningAmber),
-            LotItemData("Samsung Tablet", "Electronics", "New", "x1", "$120.00", AccentTeal),
-            LotItemData("Bluetooth Speaker", "Electronics", "Damaged", "x2", "$15.00", ErrorRed)
-        )
+    LaunchedEffect(Unit) {
+        viewModel.saveEvent.collect { success ->
+            if (success) onCompleteClick()
+        }
     }
 
-    val expenses = remember {
-        mutableStateListOf(
-            ExpenseData("Shipping", "FedEx delivery", "-$80.00", InfoBlue, Icons.Default.LocalShipping),
-            ExpenseData("Labor", "Unloading help", "-$50.00", WarningAmber, Icons.Default.Person)
-        )
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+        }
     }
 
     Scaffold(
         containerColor = DarkBackground,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Receive New Lot", color = TextPrimary, fontWeight = FontWeight.Bold) },
@@ -88,11 +89,16 @@ fun ReceiveLotScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = onSaveDraftClick) {
-                        Text("Save Draft", color = TextSecondary)
-                    }
-                    TextButton(onClick = onCompleteClick) {
-                        Text("Complete", color = AccentTeal, fontWeight = FontWeight.Bold)
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp).padding(end = 16.dp),
+                            color = AccentTeal,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        TextButton(onClick = viewModel::complete) {
+                            Text("Complete", color = AccentTeal, fontWeight = FontWeight.Bold)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
@@ -134,19 +140,10 @@ fun ReceiveLotScreen(
                             ) {
                                 Column {
                                     Text("Lot Number", color = TextSecondary, fontSize = 12.sp)
-                                    Text("LOT-2024-001", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text(uiState.lotNumber, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
-                                Surface(
-                                    color = AccentTeal,
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
-                                    Text(
-                                        "Auto",
-                                        color = DarkBackground,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
+                                Surface(color = AccentTeal, shape = RoundedCornerShape(4.dp)) {
+                                    Text("Auto", color = DarkBackground, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                                 }
                             }
 
@@ -154,8 +151,9 @@ fun ReceiveLotScreen(
 
                             SelectorRow(
                                 label = "Supplier",
-                                value = selectedSupplier ?: "Select Supplier",
+                                value = suppliers.find { it.id.toString() == uiState.supplierId }?.name ?: "Select Supplier",
                                 icon = Icons.Default.Business,
+                                isError = uiState.supplierError != null,
                                 onClick = { showSupplierSheet = true }
                             )
 
@@ -163,18 +161,10 @@ fun ReceiveLotScreen(
 
                             SelectorRow(
                                 label = "Warehouse",
-                                value = selectedWarehouse ?: "Select Warehouse",
+                                value = warehouses.find { it.id == uiState.warehouseId }?.name ?: "Select Warehouse",
                                 icon = Icons.Default.Warehouse,
+                                isError = uiState.warehouseError != null,
                                 onClick = { showWarehouseSheet = true }
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            SelectorRow(
-                                label = "Date",
-                                value = "Jun 27, 2024",
-                                icon = Icons.Default.CalendarToday,
-                                onClick = { /* Show DatePicker */ }
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -182,9 +172,10 @@ fun ReceiveLotScreen(
                             Text("Purchase Price", color = TextSecondary, fontSize = 12.sp)
                             Spacer(modifier = Modifier.height(4.dp))
                             OutlinedTextField(
-                                value = purchasePrice,
-                                onValueChange = { purchasePrice = it },
+                                value = uiState.purchasePrice,
+                                onValueChange = viewModel::onPurchasePriceChange,
                                 modifier = Modifier.fillMaxWidth(),
+                                isError = uiState.priceError != null,
                                 placeholder = { Text("0.00", color = TextSecondary) },
                                 prefix = { Text("$", color = AccentTeal) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -200,8 +191,8 @@ fun ReceiveLotScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             OutlinedTextField(
-                                value = notes,
-                                onValueChange = { notes = it },
+                                value = uiState.notes,
+                                onValueChange = viewModel::onNotesChange,
                                 modifier = Modifier.fillMaxWidth(),
                                 placeholder = { Text("Optional notes...", color = TextSecondary) },
                                 minLines = 2,
@@ -217,15 +208,15 @@ fun ReceiveLotScreen(
                     }
                 }
 
-                // Tabs Section - Sticky Header
+                // Tabs Section
                 stickyHeader {
-                    TabRow(
+                    SecondaryTabRow(
                         selectedTabIndex = selectedTab,
                         containerColor = DarkBackground,
                         contentColor = AccentTeal,
-                        indicator = { tabPositions ->
+                        indicator = {
                             TabRowDefaults.SecondaryIndicator(
-                                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                modifier = Modifier.tabIndicatorOffset(selectedTab),
                                 color = AccentTeal
                             )
                         },
@@ -234,82 +225,59 @@ fun ReceiveLotScreen(
                         Tab(
                             selected = selectedTab == 0,
                             onClick = { selectedTab = 0 },
-                            text = {
-                                Text(
-                                    "Items",
-                                    color = if (selectedTab == 0) AccentTeal else TextSecondary,
-                                    fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
+                            text = { Text("Items", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) }
                         )
                         Tab(
                             selected = selectedTab == 1,
                             onClick = { selectedTab = 1 },
-                            text = {
-                                Text(
-                                    "Expenses",
-                                    color = if (selectedTab == 1) AccentTeal else TextSecondary,
-                                    fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
+                            text = { Text("Expenses", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) }
                         )
                     }
                 }
 
                 // Tab Content
                 if (selectedTab == 0) {
-                    if (items.isEmpty()) {
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 64.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(Icons.Default.Inventory, contentDescription = null, modifier = Modifier.size(48.dp), tint = PlaceholderColor)
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("No items added yet", color = TextSecondary)
-                                Text("Tap + to add items from your inventory", color = TextSecondary, fontSize = 12.sp)
-                            }
-                        }
+                    if (uiState.items.isEmpty()) {
+                        item { EmptyTabState(Icons.Default.Inventory, "No items added yet", "Tap + to add items from your inventory") }
                     } else {
-                        items(items) { item ->
-                            LotItemRow(item, onRemove = { items.remove(item) })
+                        items(uiState.items) { item ->
+                            LotItemRow(item, onRemove = { viewModel.removeItem(uiState.items.indexOf(item)) })
                         }
                     }
                 } else {
                     item {
-                        val totalExpenses = expenses.sumOf {
-                            it.amount.replace("$", "").replace("-", "").replace("+", "").toDoubleOrNull() ?: 0.0
-                        }
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("Total Expenses:", color = TextSecondary)
-                            Text("+$${String.format("%.2f", totalExpenses)}", color = AccentTeal, fontWeight = FontWeight.Bold)
+                            Text("$${String.format("%.2f", uiState.expenses.sumOf { it.amount })}", color = AccentTeal, fontWeight = FontWeight.Bold)
                         }
                     }
-                    if (expenses.isEmpty()) {
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 64.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(Icons.Default.Receipt, contentDescription = null, modifier = Modifier.size(48.dp), tint = PlaceholderColor)
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("No extra expenses", color = TextSecondary)
-                                Text("Tap + to add shipping, labor or other costs", color = TextSecondary, fontSize = 12.sp)
-                            }
-                        }
+                    if (uiState.expenses.isEmpty()) {
+                        item { EmptyTabState(Icons.Default.Receipt, "No extra expenses", "Tap + to add shipping, labor or other costs") }
                     } else {
-                        items(expenses) { expense ->
-                            ExpenseRow(expense, onRemove = { expenses.remove(expense) })
+                        items(uiState.expenses) { expense ->
+                            ExpenseRow(expense, onRemove = { viewModel.removeExpense(uiState.expenses.indexOf(expense)) })
                         }
+                    }
+                }
+            }
+
+            // Summary Card at bottom
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                color = SurfaceColor,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp).navigationBarsPadding(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Total Cost", color = TextSecondary, fontSize = 12.sp)
+                        Text("$${String.format("%.2f", uiState.totalCost)}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     }
                 }
             }
@@ -317,9 +285,10 @@ fun ReceiveLotScreen(
             // Bottom Sheets
             if (showSupplierSheet) {
                 SupplierSelectorSheet(
+                    suppliers = suppliers,
                     onDismiss = { showSupplierSheet = false },
                     onSupplierSelected = {
-                        selectedSupplier = it
+                        viewModel.onSupplierChange(it)
                         showSupplierSheet = false
                     },
                     onAddNewSupplierClick = onAddNewSupplierClick
@@ -328,9 +297,10 @@ fun ReceiveLotScreen(
 
             if (showWarehouseSheet) {
                 WarehouseSelectorSheet(
+                    warehouses = warehouses,
                     onDismiss = { showWarehouseSheet = false },
                     onWarehouseSelected = {
-                        selectedWarehouse = it
+                        viewModel.onWarehouseChange(it)
                         showWarehouseSheet = false
                     }
                 )
@@ -338,16 +308,22 @@ fun ReceiveLotScreen(
 
             if (showItemSheet) {
                 ItemSelectorSheet(
+                    availableItems = availableItems,
                     onDismiss = { showItemSheet = false },
                     onCreateNewItemClick = onCreateNewItemClick,
-                    onAddSelectedItems = { showItemSheet = false }
+                    onItemAdded = { itemId, qty ->
+                        viewModel.addItem(itemId, qty)
+                    }
                 )
             }
 
             if (showExpenseSheet) {
                 AddExpenseSheet(
                     onDismiss = { showExpenseSheet = false },
-                    onAddExpense = { showExpenseSheet = false }
+                    onAddExpense = { name, amount ->
+                        viewModel.addExpense(name, amount)
+                        showExpenseSheet = false
+                    }
                 )
             }
         }
@@ -355,7 +331,21 @@ fun ReceiveLotScreen(
 }
 
 @Composable
-private fun LotItemRow(item: LotItemData, onRemove: () -> Unit) {
+private fun EmptyTabState(icon: ImageVector, title: String, subtitle: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 64.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(48.dp), tint = PlaceholderColor)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(title, color = TextSecondary)
+        Text(subtitle, color = TextSecondary, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun LotItemRow(item: ReceiveLotUiState.ItemRow, onRemove: () -> Unit) {
     Card(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
@@ -365,26 +355,14 @@ private fun LotItemRow(item: LotItemData, onRemove: () -> Unit) {
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(PlaceholderColor),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(PlaceholderColor), contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
             }
             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Surface(color = PlaceholderColor, shape = RoundedCornerShape(4.dp)) {
-                        Text(item.category, color = TextSecondary, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
-                    }
-                    Surface(color = item.conditionColor.copy(alpha = 0.2f), shape = RoundedCornerShape(4.dp)) {
-                        Text(item.condition, color = item.conditionColor, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
-                    }
-                }
+                Text(item.itemName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(item.qty, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(item.price, color = TextSecondary, fontSize = 11.sp)
+                Text("x${item.quantity}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 IconButton(onClick = onRemove, modifier = Modifier.size(20.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(16.dp))
                 }
@@ -394,7 +372,7 @@ private fun LotItemRow(item: LotItemData, onRemove: () -> Unit) {
 }
 
 @Composable
-private fun ExpenseRow(expense: ExpenseData, onRemove: () -> Unit) {
+private fun ExpenseRow(expense: ReceiveLotUiState.ExpenseRow, onRemove: () -> Unit) {
     Card(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
@@ -404,18 +382,14 @@ private fun ExpenseRow(expense: ExpenseData, onRemove: () -> Unit) {
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape).background(expense.color.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(expense.icon, contentDescription = null, tint = expense.color, modifier = Modifier.size(20.dp))
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(AccentTeal.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Receipt, contentDescription = null, tint = AccentTeal, modifier = Modifier.size(20.dp))
             }
             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(expense.type, color = TextPrimary, fontWeight = FontWeight.Bold)
-                Text(expense.notes, color = TextSecondary, fontSize = 12.sp)
+                Text(expense.expenseName, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(expense.amount, color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text("$${String.format("%.2f", expense.amount)}", color = TextPrimary, fontWeight = FontWeight.Bold)
                 IconButton(onClick = onRemove, modifier = Modifier.size(20.dp).padding(start = 8.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(16.dp))
                 }
@@ -425,20 +399,21 @@ private fun ExpenseRow(expense: ExpenseData, onRemove: () -> Unit) {
 }
 
 @Composable
-fun SelectorRow(label: String, value: String, icon: ImageVector, onClick: () -> Unit) {
+fun SelectorRow(label: String, value: String, icon: ImageVector, isError: Boolean = false, onClick: () -> Unit) {
     Column {
-        Text(label, color = TextSecondary, fontSize = 12.sp)
+        Text(label, color = if (isError) ErrorRed else TextSecondary, fontSize = 12.sp)
         Spacer(modifier = Modifier.height(4.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(PlaceholderColor)
+                .border(1.dp, if (isError) ErrorRed else Color.Transparent, RoundedCornerShape(12.dp))
                 .clickable { onClick() }
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = null, tint = if (isError) ErrorRed else TextSecondary, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = value,
@@ -454,18 +429,13 @@ fun SelectorRow(label: String, value: String, icon: ImageVector, onClick: () -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SupplierSelectorSheet(
+    suppliers: List<Supplier>,
     onDismiss: () -> Unit,
     onSupplierSelected: (String) -> Unit,
     onAddNewSupplierClick: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var debouncedQuery by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    LaunchedEffect(searchQuery) {
-        delay(300)
-        debouncedQuery = searchQuery
-    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -491,33 +461,28 @@ fun SupplierSelectorSheet(
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
-            val allSuppliers = listOf("Amazon Returns", "BULQ", "Direct Liquidation", "B-Stock")
-            val filteredSuppliers = remember(debouncedQuery) {
-                allSuppliers.filter { it.contains(debouncedQuery, ignoreCase = true) }
+            
+            val filteredSuppliers = remember(searchQuery, suppliers) {
+                suppliers.filter { it.name.contains(searchQuery, ignoreCase = true) }
             }
             
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(filteredSuppliers) { supplier ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onSupplierSelected(supplier) },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onSupplierSelected(supplier.id.toString()) },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Business, contentDescription = null, tint = AccentTeal)
                             Spacer(modifier = Modifier.width(12.dp))
-                            Text(supplier, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text(supplier.name, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
                         }
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = PlaceholderColor)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(
                 onClick = onAddNewSupplierClick,
@@ -535,6 +500,7 @@ fun SupplierSelectorSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WarehouseSelectorSheet(
+    warehouses: List<Warehouse>,
     onDismiss: () -> Unit,
     onWarehouseSelected: (String) -> Unit
 ) {
@@ -549,27 +515,19 @@ fun WarehouseSelectorSheet(
         Column(modifier = Modifier.fillMaxHeight(0.6f).padding(16.dp)) {
             Text("Select Warehouse", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
-            val warehouses = listOf(
-                "Main Warehouse" to "Chicago, IL",
-                "Storage Unit 2" to "Chicago, IL",
-                "Retail Location" to "Evanston, IL"
-            )
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(warehouses) { (name, location) ->
+                items(warehouses) { warehouse ->
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onWarehouseSelected(name) },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onWarehouseSelected(warehouse.id) },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Warehouse, contentDescription = null, tint = AccentTeal)
                             Spacer(modifier = Modifier.width(12.dp))
                             Column {
-                                Text(name, color = TextPrimary, fontWeight = FontWeight.Bold)
-                                Text(location, color = TextSecondary, fontSize = 12.sp)
+                                Text(warehouse.name, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                Text(warehouse.address ?: "", color = TextSecondary, fontSize = 12.sp)
                             }
                         }
                     }
@@ -583,18 +541,13 @@ fun WarehouseSelectorSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ItemSelectorSheet(
+    availableItems: List<Item>,
     onDismiss: () -> Unit,
     onCreateNewItemClick: () -> Unit,
-    onAddSelectedItems: () -> Unit
+    onItemAdded: (String, Int) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var debouncedQuery by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    LaunchedEffect(searchQuery) {
-        delay(300)
-        debouncedQuery = searchQuery
-    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -620,83 +573,52 @@ fun ItemSelectorSheet(
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
-            val allItems = listOf(
-                "Nike Air Max 90" to "Footwear",
-                "Samsung Tablet" to "Electronics",
-                "Bluetooth Speaker" to "Electronics",
-                "Levi's Jeans" to "Clothing",
-                "Coffee Maker" to "Appliances"
-            )
-            val filteredItems = remember(debouncedQuery) {
-                allItems.filter { it.first.contains(debouncedQuery, ignoreCase = true) }
+
+            val filteredItems = remember(searchQuery, availableItems) {
+                availableItems.filter { it.name.contains(searchQuery, ignoreCase = true) }
             }
 
-            val quantities = remember { mutableStateMapOf<String, TextFieldValue>() }
+            val quantities = remember { mutableStateMapOf<String, String>() }
 
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(filteredItems) { (name, cat) ->
-                    val textFieldValue = quantities[name] ?: TextFieldValue("")
+                items(filteredItems) { item ->
+                    val qty = quantities[item.id] ?: ""
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(SurfaceColor), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
                             }
                             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                                Text(name, color = TextPrimary, fontWeight = FontWeight.Bold)
-                                Text(cat, color = TextSecondary, fontSize = 12.sp)
+                                Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                Text(item.type.name, color = TextSecondary, fontSize = 12.sp)
                             }
-                            Column(horizontalAlignment = Alignment.End) {
-                                OutlinedTextField(
-                                    value = textFieldValue,
-                                    onValueChange = { newValue ->
-                                        if (newValue.text.isEmpty() || newValue.text.all { it.isDigit() }) {
-                                            quantities[name] = newValue
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .width(80.dp)
-                                        .height(64.dp)
-                                        .onFocusChanged { focusState ->
-                                            if (focusState.isFocused) {
-                                                val text = quantities[name]?.text ?: ""
-                                                quantities[name] = TextFieldValue(
-                                                    text = text,
-                                                    selection = TextRange(0, text.length)
-                                                )
-                                            }
-                                        },
-                                    placeholder = {
-                                        Text("0", color = TextSecondary, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-                                    },
-                                    textStyle = LocalTextStyle.current.copy(
-                                        textAlign = TextAlign.Center,
-                                        fontSize = 20.sp,
-                                        color = TextPrimary
-                                    ),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    singleLine = true,
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = AccentTeal,
-                                        unfocusedBorderColor = SurfaceColor,
-                                        focusedContainerColor = SurfaceColor,
-                                        unfocusedContainerColor = SurfaceColor
-                                    )
-                                )
+                            OutlinedTextField(
+                                value = qty,
+                                onValueChange = { if (it.all { char -> char.isDigit() }) quantities[item.id] = it },
+                                modifier = Modifier.width(70.dp),
+                                placeholder = { Text("0", textAlign = TextAlign.Center) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(onClick = {
+                                val q = qty.toIntOrNull() ?: 0
+                                if (q > 0) {
+                                    onItemAdded(item.id, q)
+                                    quantities[item.id] = ""
+                                }
+                            }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add", tint = AccentTeal)
                             }
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = PlaceholderColor)
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(
                 onClick = onCreateNewItemClick,
@@ -709,12 +631,12 @@ fun ItemSelectorSheet(
             }
             Spacer(modifier = Modifier.height(12.dp))
             Button(
-                onClick = onAddSelectedItems,
+                onClick = onDismiss,
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Add Selected", color = DarkBackground, fontWeight = FontWeight.Bold)
+                Text("Done", color = DarkBackground, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -724,11 +646,10 @@ fun ItemSelectorSheet(
 @Composable
 fun AddExpenseSheet(
     onDismiss: () -> Unit,
-    onAddExpense: () -> Unit
+    onAddExpense: (String, Double) -> Unit
 ) {
-    var selectedType by remember { mutableIntStateOf(0) }
-    var amount by remember { mutableStateOf(TextFieldValue("")) }
-    var notes by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    var amount by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -741,73 +662,34 @@ fun AddExpenseSheet(
             Text("Add Expense", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text("Type", color = TextSecondary, fontSize = 12.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            val types = listOf("Shipping", "Labor", "Fuel", "Other")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                types.forEachIndexed { index, type ->
-                    FilterChip(
-                        selected = selectedType == index,
-                        onClick = { selectedType = index },
-                        label = { Text(type) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = AccentTeal,
-                            selectedLabelColor = DarkBackground,
-                            containerColor = PlaceholderColor,
-                            labelColor = TextSecondary
-                        ),
-                        border = null,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Expense Name") },
+                placeholder = { Text("e.g. Shipping") },
+                shape = RoundedCornerShape(12.dp)
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedTextField(
                 value = amount,
-                onValueChange = { newValue ->
-                    if (newValue.text.isEmpty() || newValue.text.replace(".", "").all { it.isDigit() }) {
-                        amount = newValue
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused) {
-                            amount = amount.copy(selection = TextRange(0, amount.text.length))
-                        }
-                    },
+                onValueChange = { if (it.isEmpty() || it.replace(".", "").all { char -> char.isDigit() }) amount = it },
+                modifier = Modifier.fillMaxWidth(),
                 label = { Text("Amount") },
-                placeholder = { Text("0.00") },
                 prefix = { Text("$", color = AccentTeal) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AccentTeal,
-                    unfocusedBorderColor = PlaceholderColor,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
-                )
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Optional notes...", color = TextSecondary) },
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AccentTeal,
-                    unfocusedBorderColor = PlaceholderColor,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
-                )
+                shape = RoundedCornerShape(12.dp)
             )
 
             Spacer(modifier = Modifier.weight(1f))
             Button(
-                onClick = onAddExpense,
+                onClick = {
+                    val a = amount.toDoubleOrNull() ?: 0.0
+                    if (name.isNotBlank() && a > 0) {
+                        onAddExpense(name, a)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
                 shape = RoundedCornerShape(12.dp)
@@ -818,11 +700,8 @@ fun AddExpenseSheet(
     }
 }
 
-private data class LotItemData(val name: String, val category: String, val condition: String, val qty: String, val price: String, val conditionColor: Color)
-private data class ExpenseData(val type: String, val notes: String, val amount: String, val color: Color, val icon: ImageVector)
-
 @Preview(showBackground = true)
 @Composable
 fun ReceiveLotScreenPreview() {
-    ReceiveLotScreen()
+    // Requires mock/dummy data for full preview
 }

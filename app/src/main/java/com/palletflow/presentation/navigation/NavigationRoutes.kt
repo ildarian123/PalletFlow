@@ -24,13 +24,13 @@ sealed class Screen(val route: String) {
     
     object SupplierList : Screen("supplier_list")
     object SupplierDetail : Screen("supplier_detail/{id}") {
-        fun createRoute(id: Int) = "supplier_detail/$id"
+        fun createRoute(id: String) = "supplier_detail/$id"
     }
     object NewSupplier : Screen("new_supplier")
     
     object LotList : Screen("lot_list")
     object LotDetail : Screen("lot_detail/{id}") {
-        fun createRoute(id: Int) = "lot_detail/$id"
+        fun createRoute(id: String) = "lot_detail/$id"
     }
     object ReceiveNewLot : Screen("receive_new_lot")
     

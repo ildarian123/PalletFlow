@@ -6,5 +6,5 @@ import javax.inject.Inject
 class GetLotDetailUseCase @Inject constructor(
     private val repository: LotRepository
 ) {
-    operator fun invoke(lotId: Int) = repository.getLotDetail(lotId)
+    operator fun invoke(lotId: String) = repository.getLotDetail(lotId)
 }
