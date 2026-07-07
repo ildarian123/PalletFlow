@@ -19,11 +19,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.palletflow.data.local.entity.Transaction
+import com.palletflow.data.local.entity.TransactionStatus
 import com.palletflow.data.local.entity.TransactionType
 import com.palletflow.presentation.common.TransactionContextMenu
 import java.text.SimpleDateFormat
@@ -46,9 +48,6 @@ fun SalesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
-    var showContextMenu by remember { mutableStateOf(false) }
-    var expandedFab by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.deleteEvent.collect { event ->
@@ -63,15 +62,39 @@ fun SalesScreen(
         }
     }
 
+    SalesScreenContent(
+        uiState = uiState,
+        snackbarHostState = snackbarHostState,
+        onAddLotClick = onAddLotClick,
+        onAddSaleClick = onAddSaleClick,
+        onAddTransferClick = onAddTransferClick,
+        onSearchQueryChange = viewModel::onSearchQueryChange,
+        onDateFilterChange = viewModel::onDateFilterChange,
+        onTabChange = viewModel::onTabChange,
+        onDeleteTransaction = viewModel::deleteTransaction
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SalesScreenContent(
+    uiState: SalesUiState,
+    snackbarHostState: SnackbarHostState,
+    onAddLotClick: () -> Unit,
+    onAddSaleClick: () -> Unit,
+    onAddTransferClick: () -> Unit,
+    onSearchQueryChange: (String) -> Unit,
+    onDateFilterChange: (DateFilter) -> Unit,
+    onTabChange: (Int) -> Unit,
+    onDeleteTransaction: (String) -> Unit
+) {
+    var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
+    var showContextMenu by remember { mutableStateOf(false) }
+    var expandedFab by remember { mutableStateOf(false) }
+
     Scaffold(
         containerColor = DarkBackground,
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Activity", color = TextPrimary, fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
-            )
-        },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
                 if (expandedFab) {
@@ -104,7 +127,7 @@ fun SalesScreen(
             // Search Bar
             OutlinedTextField(
                 value = uiState.searchQuery,
-                onValueChange = viewModel::onSearchQueryChange,
+                onValueChange = onSearchQueryChange,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
@@ -130,10 +153,10 @@ fun SalesScreen(
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                DateFilterChip("Today", DateFilter.TODAY, uiState.selectedDateFilter) { viewModel.onDateFilterChange(it) }
-                DateFilterChip("This Week", DateFilter.WEEK, uiState.selectedDateFilter) { viewModel.onDateFilterChange(it) }
-                DateFilterChip("This Month", DateFilter.MONTH, uiState.selectedDateFilter) { viewModel.onDateFilterChange(it) }
-                DateFilterChip("All Time", DateFilter.CUSTOM, uiState.selectedDateFilter) { viewModel.onDateFilterChange(it) }
+                DateFilterChip("Today", DateFilter.TODAY, uiState.selectedDateFilter, onDateFilterChange)
+                DateFilterChip("This Week", DateFilter.WEEK, uiState.selectedDateFilter, onDateFilterChange)
+                DateFilterChip("This Month", DateFilter.MONTH, uiState.selectedDateFilter, onDateFilterChange)
+                DateFilterChip("All Time", DateFilter.CUSTOM, uiState.selectedDateFilter, onDateFilterChange)
             }
 
             // TabRow
@@ -151,19 +174,19 @@ fun SalesScreen(
             ) {
                 Tab(
                     selected = uiState.selectedTab == 0,
-                    onClick = { viewModel.onTabChange(0) },
+                    onClick = { onTabChange(0) },
                     text = { Text("Incoming") },
                     icon = { Icon(Icons.Default.CallReceived, null) }
                 )
                 Tab(
                     selected = uiState.selectedTab == 1,
-                    onClick = { viewModel.onTabChange(1) },
+                    onClick = { onTabChange(1) },
                     text = { Text("Sales") },
                     icon = { Icon(Icons.Default.Sell, null) }
                 )
                 Tab(
                     selected = uiState.selectedTab == 2,
-                    onClick = { viewModel.onTabChange(2) },
+                    onClick = { onTabChange(2) },
                     text = { Text("Transfers") },
                     icon = { Icon(Icons.Default.SwapHoriz, null) }
                 )
@@ -201,7 +224,7 @@ fun SalesScreen(
             onDismiss = { showContextMenu = false; selectedTransaction = null },
             onViewDetailsClick = { /* TODO */ },
             onEditClick = { /* TODO */ },
-            onDeleteClick = { viewModel.deleteTransaction(it) }
+            onDeleteClick = onDeleteTransaction
         )
     }
 }
@@ -322,8 +345,8 @@ fun TransactionCard(transaction: Transaction, onLongClick: () -> Unit) {
                 Text(
                     text = transaction.status.name,
                     color = when(transaction.status) {
-                        com.palletflow.data.local.entity.TransactionStatus.COMPLETED -> AccentTeal
-                        com.palletflow.data.local.entity.TransactionStatus.DRAFT -> Color.Gray
+                        TransactionStatus.COMPLETED -> AccentTeal
+                        TransactionStatus.DRAFT -> Color.Gray
                         else -> TextSecondary
                     },
                     fontSize = 11.sp
@@ -357,4 +380,38 @@ fun EmptyState(selectedTab: Int) {
             fontSize = 14.sp
         )
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SalesScreenPreview() {
+    SalesScreenContent(
+        uiState = SalesUiState(
+            filteredTransactions = listOf(
+                Transaction(
+                    userId = "1",
+                    type = TransactionType.SALE,
+                    amount = 150.0,
+                    notes = "Sold 5 items",
+                    createdAt = System.currentTimeMillis()
+                ),
+                Transaction(
+                    userId = "1",
+                    type = TransactionType.INCOMING,
+                    quantity = 20,
+                    notes = "Received new shipment",
+                    createdAt = System.currentTimeMillis() - 86400000
+                )
+            ),
+            isLoading = false
+        ),
+        snackbarHostState = remember { SnackbarHostState() },
+        onAddLotClick = {},
+        onAddSaleClick = {},
+        onAddTransferClick = {},
+        onSearchQueryChange = {},
+        onDateFilterChange = {},
+        onTabChange = {},
+        onDeleteTransaction = {}
+    )
 }
