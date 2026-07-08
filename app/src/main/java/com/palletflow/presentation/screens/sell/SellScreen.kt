@@ -114,8 +114,9 @@ fun SellScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
-                // Error Message
-                uiState.error?.let { error ->
+                // Error Messages
+                val activeError = uiState.error ?: uiState.itemError ?: uiState.platformError ?: uiState.warehouseError
+                activeError?.let { error ->
                     item {
                         Surface(
                             color = ErrorRed.copy(alpha = 0.1f),
