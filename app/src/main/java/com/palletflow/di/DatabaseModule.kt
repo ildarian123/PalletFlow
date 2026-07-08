@@ -29,7 +29,9 @@ object DatabaseModule {
             AppDatabase.MIGRATION_5_6,
             AppDatabase.MIGRATION_6_7,
             AppDatabase.MIGRATION_7_8,
-            AppDatabase.MIGRATION_8_9
+            AppDatabase.MIGRATION_8_9,
+            AppDatabase.MIGRATION_9_10,
+            AppDatabase.MIGRATION_10_11
         ).build()
     }
 
@@ -62,4 +64,10 @@ object DatabaseModule {
 
     @Provides
     fun provideLotExpenseDao(db: AppDatabase) = db.lotExpenseDao()
+
+    @Provides
+    fun provideSaleItemDao(db: AppDatabase) = db.saleItemDao()
+
+    @Provides
+    fun provideSaleExpenseDao(db: AppDatabase) = db.saleExpenseDao()
 }

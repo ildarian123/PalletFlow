@@ -43,6 +43,7 @@ private val SuccessGreen = Color(0xFF4CD964)
 fun DashboardScreen(
     onReceiveLotClick: () -> Unit,
     onSellItemClick: () -> Unit,
+    onAddSaleClickWithId: (String) -> Unit,
     onMoveInventoryClick: () -> Unit,
     onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
@@ -61,6 +62,7 @@ fun DashboardScreen(
         uiState = uiState,
         onReceiveLotClick = onReceiveLotClick,
         onSellItemClick = onSellItemClick,
+        onAddSaleClickWithId = onAddSaleClickWithId,
         onMoveInventoryClick = onMoveInventoryClick,
         onAddExpenseClick = onAddExpenseClick,
         onSeeAllActivityClick = onSeeAllActivityClick,
@@ -83,6 +85,7 @@ fun DashboardScreenContent(
     uiState: DashboardUiState,
     onReceiveLotClick: () -> Unit,
     onSellItemClick: () -> Unit,
+    onAddSaleClickWithId: (String) -> Unit,
     onMoveInventoryClick: () -> Unit,
     onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
@@ -183,6 +186,7 @@ fun DashboardScreenContent(
                         onAddLotClick = onReceiveLotClick,
                         onEditLotClick = onEditLotClick,
                         onAddSaleClick = onSellItemClick,
+                        onAddSaleClickWithId = onAddSaleClickWithId,
                         onAddTransferClick = onMoveInventoryClick
                     )
                 }

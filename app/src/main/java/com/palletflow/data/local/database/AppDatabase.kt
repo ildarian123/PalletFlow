@@ -18,9 +18,11 @@ import com.palletflow.data.local.entity.*
         Expense::class,
         Item::class,
         Stock::class,
-        LotExpense::class
+        LotExpense::class,
+        SaleItem::class,
+        SaleExpense::class
     ],
-    version = 9,
+    version = 11,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +36,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao
     abstract fun stockDao(): StockDao
     abstract fun lotExpenseDao(): LotExpenseDao
+    abstract fun saleItemDao(): SaleItemDao
+    abstract fun saleExpenseDao(): SaleExpenseDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -209,8 +213,6 @@ abstract class AppDatabase : RoomDatabase() {
                 """)
                 
                 // 3. Copy data from old table. 
-                // We handle the case where some columns might already exist if a previous attempt partially succeeded.
-                // We check if 'contactPerson' exists in the old table to decide the source column.
                 val cursor = db.query("PRAGMA table_info(suppliers)")
                 var hasContactPerson = false
                 var hasUserId = false
@@ -266,6 +268,51 @@ abstract class AppDatabase : RoomDatabase() {
                 """)
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_lot_items_lotId` ON `lot_items` (`lotId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_lot_items_itemId` ON `lot_items` (`itemId`)")
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    ALTER TABLE transactions 
+                    ADD COLUMN documentNumber TEXT
+                """)
+                db.execSQL("""
+                    ALTER TABLE items 
+                    ADD COLUMN lotId TEXT
+                """)
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `sale_items` (
+                        `id` TEXT NOT NULL,
+                        `transactionId` TEXT NOT NULL,
+                        `itemId` TEXT NOT NULL,
+                        `lotId` TEXT NOT NULL,
+                        `quantity` INTEGER NOT NULL,
+                        `sellingPrice` REAL NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_items_transactionId` ON `sale_items` (`transactionId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_items_itemId` ON `sale_items` (`itemId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_items_lotId` ON `sale_items` (`lotId`)")
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `sale_expenses` (
+                        `id` TEXT NOT NULL,
+                        `transactionId` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `amount` REAL NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_expenses_transactionId` ON `sale_expenses` (`transactionId`)")
             }
         }
     }

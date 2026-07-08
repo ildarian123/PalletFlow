@@ -11,7 +11,9 @@ import javax.inject.Singleton
 
 @Singleton
 class TransactionRepositoryImpl @Inject constructor(
-    private val transactionDao: TransactionDao
+    private val transactionDao: TransactionDao,
+    private val saleItemDao: com.palletflow.data.local.dao.SaleItemDao,
+    private val saleExpenseDao: com.palletflow.data.local.dao.SaleExpenseDao
 ) : TransactionRepository {
 
     override fun getAllTransactions(userId: String): Flow<List<Transaction>> =
@@ -30,12 +32,25 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun getTransactionById(id: String, userId: String): Transaction? =
         transactionDao.getTransactionById(id, userId)
 
+    override suspend fun isDocumentNumberUnique(documentNumber: String): Boolean =
+        transactionDao.getTransactionByDocumentNumber(documentNumber) == null
+
     override suspend fun createTransaction(transaction: Transaction): Result<Transaction> {
         return try {
             transactionDao.insertTransaction(transaction)
             Result.success(transaction)
         } catch (e: Exception) {
             Log.e("TransactionRepository", "Failed to create transaction", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateTransaction(transaction: Transaction): Result<Transaction> {
+        return try {
+            transactionDao.updateTransaction(transaction)
+            Result.success(transaction)
+        } catch (e: Exception) {
+            Log.e("TransactionRepository", "Failed to update transaction", e)
             Result.failure(e)
         }
     }
@@ -49,4 +64,10 @@ class TransactionRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun getSaleItems(transactionId: String) = 
+        saleItemDao.getItemsByTransactionId(transactionId)
+
+    override suspend fun getSaleExpenses(transactionId: String) = 
+        saleExpenseDao.getExpensesByTransactionId(transactionId)
 }

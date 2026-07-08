@@ -45,7 +45,9 @@ sealed class Screen(val route: String) {
     object AddItem : Screen("add_item")
     object AddExpense : Screen("add_expense")
     
-    object NewSale : Screen("new_sale")
+    object NewSale : Screen("new_sale?saleId={saleId}") {
+        fun createRoute(saleId: String? = null) = if (saleId != null) "new_sale?saleId=$saleId" else "new_sale"
+    }
     object SellItem : Screen("sell_item/{id}") {
         fun createRoute(id: Int) = "sell_item/$id"
     }

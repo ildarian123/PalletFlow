@@ -26,6 +26,7 @@ data class Transaction(
     val warehouseFromId: String? = null,
     val warehouseToId: String? = null,
     val platform: String? = null,
+    val documentNumber: String? = null,
     val notes: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()

@@ -20,15 +20,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.palletflow.data.local.entity.Item
+import com.palletflow.data.local.entity.Warehouse
+import java.util.*
 
 private val DarkBackground = Color(0xFF121212)
 private val SurfaceColor = Color(0xFF1E1E1E)
@@ -38,56 +43,27 @@ private val TextSecondary = Color(0xFFA1A1A6)
 private val PlaceholderColor = Color(0xFF2C2C2E)
 private val ErrorRed = Color(0xFFFF453A)
 private val InfoBlue = Color(0xFF4A90E2)
-private val WarningAmber = Color(0xFFFF9500)
 private val PlatformPurple = Color(0xFF9B59B6)
-
-data class SaleItemData(
-    val name: String,
-    val lotRef: String,
-    val condition: String,
-    val available: Int,
-    val qty: Int,
-    val price: String,
-    val cost: String,
-    val profit: String,
-    val conditionColor: Color
-)
-
-data class SaleExpenseData(
-    val type: String,
-    val notes: String,
-    val amount: String,
-    val color: Color,
-    val icon: ImageVector
-)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SellScreen(
     onBackClick: () -> Unit = {},
-    onSaveDraftClick: () -> Unit = {},
-    onCompleteClick: () -> Unit = {}
+    onCompleteClick: () -> Unit = {},
+    viewModel: SellViewModel = hiltViewModel()
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var selectedPlatform by remember { mutableIntStateOf(0) }
-    var notes by remember { mutableStateOf("") }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val itemsWithStock by viewModel.itemsWithStock.collectAsStateWithLifecycle()
+    val warehouses by viewModel.warehouses.collectAsStateWithLifecycle()
     
+    var selectedTab by remember { mutableIntStateOf(0) }
     var showItemSheet by remember { mutableStateOf(false) }
     var showExpenseSheet by remember { mutableStateOf(false) }
-    var showCustomerSheet by remember { mutableStateOf(false) }
 
-    val selectedItems = remember {
-        mutableStateListOf(
-            SaleItemData("Nike Air Max 90", "Lot #1042", "Used", 5, 2, "$45.00", "$12.00", "+$33.00", WarningAmber),
-            SaleItemData("Samsung Tablet", "Lot #1041", "New", 2, 1, "$120.00", "$45.00", "+$75.00", AccentTeal)
-        )
-    }
-
-    val selectedExpenses = remember {
-        mutableStateListOf(
-            SaleExpenseData("Shipping", "FedEx to buyer", "-$12.00", InfoBlue, Icons.Default.LocalShipping),
-            SaleExpenseData("Platform Fee", "eBay 13%", "-$30.00", PlatformPurple, Icons.Default.Percent)
-        )
+    LaunchedEffect(Unit) {
+        viewModel.saveEvent.collect { success ->
+            if (success) onCompleteClick()
+        }
     }
 
     Scaffold(
@@ -101,11 +77,19 @@ fun SellScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = onSaveDraftClick) {
-                        Text("Save Draft", color = TextSecondary)
-                    }
-                    TextButton(onClick = onCompleteClick) {
-                        Text("Complete", color = AccentTeal, fontWeight = FontWeight.Bold)
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp).padding(end = 16.dp),
+                            color = AccentTeal,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        TextButton(
+                            onClick = { viewModel.complete() },
+                            enabled = !uiState.isLoading
+                        ) {
+                            Text("Complete", color = AccentTeal, fontWeight = FontWeight.Bold)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
@@ -128,14 +112,31 @@ fun SellScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
+                // Error Message
+                uiState.error?.let { error ->
+                    item {
+                        Surface(
+                            color = ErrorRed.copy(alpha = 0.1f),
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = error,
+                                color = ErrorRed,
+                                modifier = Modifier.padding(12.dp),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
                 // Header Section
                 item {
                     SaleInfoHeader(
-                        selectedPlatform = selectedPlatform,
-                        onPlatformSelect = { selectedPlatform = it },
-                        onCustomerClick = { showCustomerSheet = true },
-                        notes = notes,
-                        onNotesChange = { notes = it }
+                        uiState = uiState,
+                        warehouses = warehouses,
+                        onPlatformSelect = viewModel::onPlatformChange,
+                        onWarehouseSelect = viewModel::onWarehouseChange
                     )
                 }
 
@@ -180,7 +181,7 @@ fun SellScreen(
 
                 // Tab Content
                 if (selectedTab == 0) {
-                    if (selectedItems.isEmpty()) {
+                    if (uiState.items.isEmpty()) {
                         item {
                             EmptyState(
                                 icon = Icons.Default.ShoppingCart,
@@ -189,8 +190,12 @@ fun SellScreen(
                             )
                         }
                     } else {
-                        itemsIndexed(selectedItems) { _, item ->
-                            SaleItemRow(item, onRemove = { selectedItems.remove(item) })
+                        itemsIndexed(uiState.items) { index, item ->
+                            SaleItemRow(
+                                item = item,
+                                onPriceChange = { viewModel.updateItemPrice(index, it) },
+                                onRemove = { viewModel.removeItem(index) }
+                            )
                         }
                     }
                 } else {
@@ -201,10 +206,10 @@ fun SellScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Total Expenses:", color = TextSecondary)
-                            Text("-$42.00", color = ErrorRed, fontWeight = FontWeight.Bold)
+                            Text("-$${String.format(Locale.US, "%.2f", uiState.totalExpenses)}", color = ErrorRed, fontWeight = FontWeight.Bold)
                         }
                     }
-                    if (selectedExpenses.isEmpty()) {
+                    if (uiState.expenses.isEmpty()) {
                         item {
                             EmptyState(
                                 icon = Icons.Default.Receipt,
@@ -213,8 +218,11 @@ fun SellScreen(
                             )
                         }
                     } else {
-                        items(selectedExpenses) { expense ->
-                            SaleExpenseRow(expense, onRemove = { selectedExpenses.remove(expense) })
+                        itemsIndexed(uiState.expenses) { index, expense ->
+                            SaleExpenseRow(
+                                expense = expense,
+                                onRemove = { viewModel.removeExpense(index) }
+                            )
                         }
                     }
                 }
@@ -223,35 +231,39 @@ fun SellScreen(
             // Bottom Sheets
             if (showItemSheet) {
                 ItemSelectorSheet(
+                    itemsWithStock = itemsWithStock,
                     onDismiss = { showItemSheet = false },
-                    onAddSelectedItems = { showItemSheet = false }
+                    onAddItem = { item, qty -> 
+                        viewModel.addItem(item, qty)
+                        showItemSheet = false
+                    }
                 )
             }
 
             if (showExpenseSheet) {
                 AddExpenseSheet(
                     onDismiss = { showExpenseSheet = false },
-                    onAddExpense = { showExpenseSheet = false }
-                )
-            }
-
-            if (showCustomerSheet) {
-                CustomerSelectorSheet(
-                    onDismiss = { showCustomerSheet = false }
+                    onAddExpense = { name, amount ->
+                        viewModel.addExpense(name, amount)
+                        showExpenseSheet = false
+                    }
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SaleInfoHeader(
-    selectedPlatform: Int,
-    onPlatformSelect: (Int) -> Unit,
-    onCustomerClick: () -> Unit,
-    notes: String,
-    onNotesChange: (String) -> Unit
+    uiState: SellUiState,
+    warehouses: List<Warehouse>,
+    onPlatformSelect: (String) -> Unit,
+    onWarehouseSelect: (String) -> Unit
 ) {
+    val clipboardManager = LocalClipboardManager.current
+    var warehouseExpanded by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.padding(16.dp),
         shape = RoundedCornerShape(16.dp),
@@ -263,13 +275,15 @@ private fun SaleInfoHeader(
 
             // Sale Number
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().clickable {
+                    clipboardManager.setText(AnnotatedString(uiState.saleNumber))
+                },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
                     Text("Sale Number", color = TextSecondary, fontSize = 12.sp)
-                    Text("SALE-2024-001", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(uiState.saleNumber, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
                 Surface(color = AccentTeal, shape = RoundedCornerShape(4.dp)) {
                     Text("Auto", color = DarkBackground, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
@@ -280,28 +294,20 @@ private fun SaleInfoHeader(
 
             // Platform Selector
             Text("Platform", color = TextSecondary, fontSize = 12.sp)
+            uiState.platformError?.let { Text(it, color = ErrorRed, fontSize = 10.sp) }
             Spacer(modifier = Modifier.height(8.dp))
-            val platforms = listOf(
-                "eBay" to Icons.Default.ShoppingCart,
-                "Facebook" to Icons.Default.People,
-                "Cash" to Icons.Default.AttachMoney,
-                "Bin Store" to Icons.Default.Store,
-                "Other" to Icons.Default.MoreHoriz
-            )
+            val platforms = listOf("eBay", "Facebook", "Cash", "Bin Store")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                itemsIndexed(platforms) { index, (name, icon) ->
+                items(platforms) { platform ->
                     FilterChip(
-                        selected = selectedPlatform == index,
-                        onClick = { onPlatformSelect(index) },
-                        label = { Text(name) },
-                        leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        selected = uiState.platform == platform,
+                        onClick = { onPlatformSelect(platform) },
+                        label = { Text(platform) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = AccentTeal,
                             selectedLabelColor = DarkBackground,
-                            selectedLeadingIconColor = DarkBackground,
                             containerColor = PlaceholderColor,
-                            labelColor = TextSecondary,
-                            iconColor = TextSecondary
+                            labelColor = TextSecondary
                         ),
                         border = null,
                         shape = RoundedCornerShape(12.dp)
@@ -311,56 +317,51 @@ private fun SaleInfoHeader(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Date Row
-            SelectorRow(
-                label = "Date",
-                value = "Jun 27, 2024",
-                icon = Icons.Default.CalendarToday,
-                onClick = { /* Open DatePicker */ }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Customer Row
-            Text("Customer", color = TextSecondary, fontSize = 12.sp)
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(PlaceholderColor)
-                    .clickable { onCustomerClick() }
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Warehouse Selector
+            Text("Warehouse", color = TextSecondary, fontSize = 12.sp)
+            uiState.warehouseError?.let { Text(it, color = ErrorRed, fontSize = 10.sp) }
+            Spacer(modifier = Modifier.height(8.dp))
+            ExposedDropdownMenuBox(
+                expanded = warehouseExpanded,
+                onExpandedChange = { warehouseExpanded = it }
             ) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(12.dp))
-                Text("Add Customer (Optional)", color = TextSecondary, modifier = Modifier.weight(1f))
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = notes,
-                onValueChange = onNotesChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Optional notes...", color = TextSecondary) },
-                minLines = 2,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = AccentTeal,
-                    unfocusedBorderColor = PlaceholderColor,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
+                val selectedWarehouseName = warehouses.find { it.id == uiState.warehouseId }?.name ?: "Select Warehouse"
+                OutlinedTextField(
+                    value = selectedWarehouseName,
+                    onValueChange = {},
+                    readOnly = true,
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = warehouseExpanded) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentTeal,
+                        unfocusedBorderColor = PlaceholderColor,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
                 )
-            )
+                ExposedDropdownMenu(
+                    expanded = warehouseExpanded,
+                    onDismissRequest = { warehouseExpanded = false },
+                    modifier = Modifier.background(SurfaceColor)
+                ) {
+                    warehouses.forEach { warehouse ->
+                        DropdownMenuItem(
+                            text = { Text(warehouse.name, color = TextPrimary) },
+                            onClick = {
+                                onWarehouseSelect(warehouse.id)
+                                warehouseExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
 
             Divider(color = PlaceholderColor, modifier = Modifier.padding(vertical = 12.dp))
 
-            SummaryMetricRow("Items Total:", "$165.00", TextPrimary)
-            SummaryMetricRow("Expenses:", "-$42.00", ErrorRed)
-            SummaryMetricRow("Net Revenue:", "$123.00", AccentTeal, isLarge = true)
+            SummaryMetricRow("Items Total:", "$${String.format(Locale.US, "%.2f", uiState.totalRevenue)}", TextPrimary)
+            SummaryMetricRow("Expenses:", "-$${String.format(Locale.US, "%.2f", uiState.totalExpenses)}", ErrorRed)
+            SummaryMetricRow("Net Revenue:", "$${String.format(Locale.US, "%.2f", uiState.netRevenue)}", AccentTeal, isLarge = true)
         }
     }
 }
@@ -378,29 +379,11 @@ private fun SummaryMetricRow(label: String, value: String, valueColor: Color, is
 }
 
 @Composable
-private fun SelectorRow(label: String, value: String, icon: ImageVector, onClick: () -> Unit) {
-    Column {
-        Text(label, color = TextSecondary, fontSize = 12.sp)
-        Spacer(modifier = Modifier.height(4.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(PlaceholderColor)
-                .clickable { onClick() }
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(value, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
-        }
-    }
-}
-
-@Composable
-private fun SaleItemRow(item: SaleItemData, onRemove: () -> Unit) {
+private fun SaleItemRow(
+    item: SellUiState.ItemRow,
+    onPriceChange: (Double) -> Unit,
+    onRemove: () -> Unit
+) {
     Card(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
@@ -411,21 +394,32 @@ private fun SaleItemRow(item: SaleItemData, onRemove: () -> Unit) {
                 Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
             }
             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(item.lotRef, color = TextSecondary, fontSize = 11.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(color = item.conditionColor.copy(alpha = 0.2f), shape = RoundedCornerShape(4.dp)) {
-                        Text(item.condition, color = item.conditionColor, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
-                    }
-                    Text("Available: ${item.available}", color = TextSecondary, fontSize = 11.sp)
+                Text(item.itemName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                if (item.lotId.isNotEmpty()) {
+                    Text("Lot: ${item.lotId}", color = TextSecondary, fontSize = 11.sp)
                 }
+                Text("Quantity: ${item.quantity}", color = TextSecondary, fontSize = 11.sp)
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("x${item.qty}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text(item.price, color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("Cost: ${item.cost}", color = TextSecondary, fontSize = 10.sp)
-                Text(item.profit, color = AccentTeal, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                IconButton(onClick = onRemove, modifier = Modifier.size(20.dp)) {
+                OutlinedTextField(
+                    value = if (item.sellingPrice == 0.0) "" else item.sellingPrice.toString(),
+                    onValueChange = { 
+                        val price = it.toDoubleOrNull() ?: 0.0
+                        onPriceChange(price)
+                    },
+                    modifier = Modifier.width(100.dp).height(50.dp),
+                    prefix = { Text("$", fontSize = 12.sp) },
+                    placeholder = { Text("0.00", fontSize = 12.sp) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentTeal,
+                        unfocusedBorderColor = PlaceholderColor,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    )
+                )
+                IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(16.dp))
                 }
             }
@@ -434,22 +428,21 @@ private fun SaleItemRow(item: SaleItemData, onRemove: () -> Unit) {
 }
 
 @Composable
-private fun SaleExpenseRow(expense: SaleExpenseData, onRemove: () -> Unit) {
+private fun SaleExpenseRow(expense: SellUiState.ExpenseRow, onRemove: () -> Unit) {
     Card(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceColor)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(expense.color), contentAlignment = Alignment.Center) {
-                Icon(expense.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(AccentTeal.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Receipt, contentDescription = null, tint = AccentTeal, modifier = Modifier.size(20.dp))
             }
             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(expense.type, color = TextPrimary, fontWeight = FontWeight.Bold)
-                Text(expense.notes, color = TextSecondary, fontSize = 12.sp)
+                Text(expense.name, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(expense.amount, color = ErrorRed, fontWeight = FontWeight.Bold)
+                Text("-$${String.format(Locale.US, "%.2f", expense.amount)}", color = ErrorRed, fontWeight = FontWeight.Bold)
                 IconButton(onClick = onRemove, modifier = Modifier.size(20.dp).padding(start = 8.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(16.dp))
                 }
@@ -474,26 +467,14 @@ private fun EmptyState(icon: ImageVector, title: String, subtitle: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelectedItems: () -> Unit) {
+private fun ItemSelectorSheet(
+    itemsWithStock: List<com.palletflow.presentation.screens.sell.ItemWithStock>,
+    onDismiss: () -> Unit,
+    onAddItem: (Item, Int) -> Unit
+) {
     var searchQuery by remember { mutableStateOf("") }
-    var debouncedQuery by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
-    val items = remember {
-        listOf(
-            "Nike Air Max 90" to ("Lot #1042" to 5),
-            "Samsung Tablet" to ("Lot #1041" to 2),
-            "Bluetooth Speaker" to ("Lot #1042" to 8),
-            "Levi's Jeans" to ("Lot #1043" to 3),
-            "Coffee Maker" to ("Lot #1040" to 1)
-        )
-    }
-
-    LaunchedEffect(searchQuery) {
-        delay(300)
-        debouncedQuery = searchQuery
-    }
-
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -501,9 +482,7 @@ private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelectedItems: () -> U
         dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxHeight(0.9f)
-                .padding(16.dp)
+            modifier = Modifier.fillMaxHeight(0.9f).padding(16.dp)
         ) {
             Text("Add Item", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
@@ -517,15 +496,16 @@ private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelectedItems: () -> U
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = AccentTeal,
                     unfocusedBorderColor = PlaceholderColor,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(items.filter { it.first.contains(debouncedQuery, ignoreCase = true) }) { (name, info) ->
-                    var price by remember { mutableStateOf("") }
-                    var qty by remember { mutableStateOf(TextFieldValue("")) }
+                val filtered = itemsWithStock.filter { it.item.name.contains(searchQuery, ignoreCase = true) }
+                items(filtered) { itemWithStock ->
+                    val item = itemWithStock.item
+                    var qty by remember { mutableStateOf("1") }
                     
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -533,52 +513,39 @@ private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelectedItems: () -> U
                         colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
                     ) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(SurfaceColor), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text("Available: ${itemWithStock.stockQuantity}", color = AccentTeal, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                if (item.lotId != null) {
+                                    Text("Lot: ${item.lotId}", color = TextSecondary, fontSize = 11.sp)
+                                }
                             }
-                            Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                                Text(name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text(info.first, color = TextSecondary, fontSize = 11.sp)
-                                Text("Available: ${info.second}", color = AccentTeal, fontSize = 11.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                OutlinedTextField(
-                                    value = price,
-                                    onValueChange = { price = it },
-                                    modifier = Modifier.width(90.dp).height(50.dp),
-                                    placeholder = { Text("0.00", fontSize = 12.sp) },
-                                    prefix = { Text("$", fontSize = 12.sp) },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                    singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentTeal, unfocusedBorderColor = SurfaceColor, focusedContainerColor = SurfaceColor, unfocusedContainerColor = SurfaceColor)
-                                )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(
                                     value = qty,
                                     onValueChange = { qty = it },
-                                    modifier = Modifier.width(70.dp).height(50.dp).onFocusChanged { 
-                                        if (it.isFocused) qty = qty.copy(selection = TextRange(0, qty.text.length)) 
-                                    },
-                                    placeholder = { Text("Qty", fontSize = 12.sp) },
+                                    modifier = Modifier.width(60.dp).height(50.dp),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentTeal, unfocusedBorderColor = SurfaceColor, focusedContainerColor = SurfaceColor, unfocusedContainerColor = SurfaceColor)
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = AccentTeal,
+                                        unfocusedBorderColor = SurfaceColor,
+                                        focusedTextColor = TextPrimary,
+                                        unfocusedTextColor = TextPrimary
+                                    )
                                 )
+                                Button(
+                                    onClick = { onAddItem(item, qty.toIntOrNull() ?: 0) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                ) {
+                                    Text("Add", color = DarkBackground, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
                 }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Divider(color = PlaceholderColor)
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = onAddSelectedItems,
-                enabled = true,
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Add Selected Items", color = DarkBackground, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -586,11 +553,9 @@ private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelectedItems: () -> U
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AddExpenseSheet(onDismiss: () -> Unit, onAddExpense: () -> Unit) {
-    var selectedType by remember { mutableIntStateOf(0) }
+private fun AddExpenseSheet(onDismiss: () -> Unit, onAddExpense: (String, Double) -> Unit) {
+    var name by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
-    val types = listOf("Shipping", "Platform Fee", "Packaging", "Other")
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
@@ -600,58 +565,39 @@ private fun AddExpenseSheet(onDismiss: () -> Unit, onAddExpense: () -> Unit) {
         dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxHeight(0.6f)
-                .padding(16.dp)
+            modifier = Modifier.fillMaxHeight(0.5f).padding(16.dp)
         ) {
             Text("Add Expense", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
             
-            Text("Type", color = TextSecondary, fontSize = 12.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                itemsIndexed(types) { index, type ->
-                    FilterChip(
-                        selected = selectedType == index,
-                        onClick = { selectedType = index },
-                        label = { Text(type) },
-                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AccentTeal, selectedLabelColor = DarkBackground, containerColor = PlaceholderColor, labelColor = TextSecondary),
-                        border = null,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Expense Name") },
+                placeholder = { Text("e.g. Shipping, Fee") },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentTeal, unfocusedBorderColor = PlaceholderColor, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
+            )
             
             Spacer(modifier = Modifier.height(12.dp))
-            Text("Amount", color = TextSecondary, fontSize = 12.sp)
             OutlinedTextField(
                 value = amount,
                 onValueChange = { amount = it },
                 modifier = Modifier.fillMaxWidth(),
+                label = { Text("Amount") },
                 prefix = { Text("$") },
                 placeholder = { Text("0.00") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentTeal, unfocusedBorderColor = PlaceholderColor, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("Notes", color = TextSecondary, fontSize = 12.sp)
-            OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Optional notes...") },
-                minLines = 2,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentTeal, unfocusedBorderColor = PlaceholderColor, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentTeal, unfocusedBorderColor = PlaceholderColor, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary)
             )
             
             Spacer(modifier = Modifier.weight(1f))
             
             Button(
-                onClick = onAddExpense,
-                enabled = amount.isNotEmpty(),
+                onClick = { onAddExpense(name, amount.toDoubleOrNull() ?: 0.0) },
+                enabled = name.isNotBlank() && amount.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentTeal, disabledContainerColor = PlaceholderColor),
                 shape = RoundedCornerShape(12.dp)
@@ -660,75 +606,4 @@ private fun AddExpenseSheet(onDismiss: () -> Unit, onAddExpense: () -> Unit) {
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CustomerSelectorSheet(onDismiss: () -> Unit) {
-    var searchQuery by remember { mutableStateOf("") }
-    val customers = listOf("John Smith", "Maria Garcia", "Bob Johnson")
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = SurfaceColor,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = PlaceholderColor) }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxHeight(0.8f)
-                .padding(16.dp)
-        ) {
-            Text("Add Customer", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Text("Optional — for record keeping", color = TextSecondary, fontSize = 12.sp)
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search customers...", color = TextSecondary) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary) },
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentTeal, unfocusedBorderColor = PlaceholderColor, focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(customers) { customer ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onDismiss() },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
-                    ) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(SurfaceColor), contentAlignment = Alignment.Center) {
-                                Text(customer.take(1), color = AccentTeal, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(customer, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Divider(color = PlaceholderColor)
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                border = BorderStroke(1.dp, TextSecondary),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Skip — No Customer")
-            }
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SellScreenPreview() {
-    SellScreen()
 }

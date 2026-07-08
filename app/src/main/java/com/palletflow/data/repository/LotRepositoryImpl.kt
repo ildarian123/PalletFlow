@@ -139,16 +139,17 @@ class LotRepositoryImpl @Inject constructor(
         Log.d("LotRepository", "updateLotWithItems started for lot: ${lot.lotNumber}")
         return try {
             database.withTransaction {
-                // 1. Get old items to revert stock
-                // Note: This is simplified. Ideally we should calculate the difference.
-                // For now, let's revert all old stock and apply new ones.
-                
-                // This would require fetching current items synchronously which Flow doesn't provide easily here.
-                // In a real app, I'd have a DAO method to get List<LotItem> synchronously.
-                
-                // Let's assume for now we just update the Lot and its details.
-                // Reverting stock accurately is complex without full history.
-                
+                // 1. Get old items and revert stock impact
+                val oldItems = lotItemDao.getItemsByLotSync(lot.id)
+                oldItems.forEach { oldItem ->
+                    stockDao.decrementQuantity(
+                        lot.userId,
+                        oldItem.itemId,
+                        lot.warehouseId,
+                        oldItem.quantity
+                    )
+                }
+
                 // 2. Update Lot
                 lotDao.insertLot(lot) // @Insert(onConflict = REPLACE) handles update
 
@@ -162,9 +163,28 @@ class LotRepositoryImpl @Inject constructor(
                         unitPrice = item.unitPrice
                     )
                     lotItemDao.insertLotItem(lotItem)
+                    
+                    // 4. Apply new stock impact
+                    val existingStock = stockDao.getStock(lot.userId, item.itemId, lot.warehouseId)
+                    if (existingStock != null) {
+                        stockDao.incrementQuantity(
+                            lot.userId,
+                            item.itemId,
+                            lot.warehouseId,
+                            item.quantity
+                        )
+                    } else {
+                        val newStock = Stock(
+                            userId = lot.userId,
+                            itemId = item.itemId,
+                            warehouseId = lot.warehouseId,
+                            quantity = item.quantity
+                        )
+                        stockDao.insertStock(newStock)
+                    }
                 }
 
-                // 4. Update Expenses (Delete old, Insert new)
+                // 5. Update Expenses (Delete old, Insert new)
                 lotExpenseDao.deleteExpensesByLot(lot.id)
                 expenses.forEach { expense ->
                     val lotExpense = LotExpense(
@@ -175,7 +195,7 @@ class LotRepositoryImpl @Inject constructor(
                     lotExpenseDao.insertExpense(lotExpense)
                 }
                 
-                // 5. Update Transaction record
+                // 6. Update Transaction record
                 val existingTransaction = transactionDao.getTransactionByLotId(lot.id)
                 val totalItemsCost = items.sumOf { (it.unitPrice ?: 0.0) * it.quantity }
                 val totalExpenses = expenses.sumOf { it.amount }
@@ -185,6 +205,7 @@ class LotRepositoryImpl @Inject constructor(
                     val updatedTransaction = existingTransaction.copy(
                         quantity = items.sumOf { it.quantity },
                         amount = totalAmount,
+                        warehouseToId = lot.warehouseId,
                         updatedAt = System.currentTimeMillis()
                     )
                     transactionDao.updateTransaction(updatedTransaction)
@@ -198,6 +219,7 @@ class LotRepositoryImpl @Inject constructor(
                         lotId = lot.id,
                         quantity = items.sumOf { it.quantity },
                         amount = totalAmount,
+                        warehouseToId = lot.warehouseId,
                         notes = "Lot ${lot.lotNumber} received"
                     )
                     transactionDao.insertTransaction(newTransaction)

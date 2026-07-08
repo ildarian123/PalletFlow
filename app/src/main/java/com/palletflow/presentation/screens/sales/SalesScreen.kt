@@ -45,6 +45,7 @@ fun SalesScreen(
     onAddLotClick: () -> Unit,
     onEditLotClick: (String) -> Unit,
     onAddSaleClick: () -> Unit,
+    onAddSaleClickWithId: (String) -> Unit,
     onAddTransferClick: () -> Unit,
     viewModel: SalesViewModel = hiltViewModel()
 ) {
@@ -70,6 +71,7 @@ fun SalesScreen(
         onAddLotClick = onAddLotClick,
         onEditLotClick = onEditLotClick,
         onAddSaleClick = onAddSaleClick,
+        onAddSaleClickWithId = onAddSaleClickWithId,
         onAddTransferClick = onAddTransferClick,
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onDateFilterChange = viewModel::onDateFilterChange,
@@ -86,6 +88,7 @@ fun SalesScreenContent(
     onAddLotClick: () -> Unit,
     onEditLotClick: (String) -> Unit,
     onAddSaleClick: () -> Unit,
+    onAddSaleClickWithId: (String) -> Unit,
     onAddTransferClick: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onDateFilterChange: (DateFilter) -> Unit,
@@ -213,8 +216,18 @@ fun SalesScreenContent(
                         TransactionCard(
                             transaction = transaction,
                             onClick = {
-                                if (transaction.type == TransactionType.INCOMING && transaction.lotId != null) {
-                                    onEditLotClick(transaction.lotId)
+                                when (transaction.type) {
+                                    TransactionType.INCOMING -> {
+                                        if (transaction.lotId != null) {
+                                            onEditLotClick(transaction.lotId)
+                                        }
+                                    }
+                                    TransactionType.SALE -> {
+                                        onAddSaleClickWithId(transaction.id)
+                                    }
+                                    TransactionType.TRANSFER -> {
+                                        onAddTransferClick()
+                                    }
                                 }
                             },
                             onLongClick = {
@@ -440,6 +453,7 @@ fun SalesScreenPreview() {
         snackbarHostState = remember { SnackbarHostState() },
         onAddLotClick = {},
         onAddSaleClick = {},
+        onAddSaleClickWithId = {},
         onAddTransferClick = {},
         onEditLotClick = {},
         onSearchQueryChange = {},

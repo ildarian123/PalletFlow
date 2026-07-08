@@ -65,7 +65,12 @@ class ReceiveLotViewModel @Inject constructor(
                 getLotFullDetailsUseCase(id),
                 availableItems
             ) { details, items ->
-                if (details != null && items.isNotEmpty()) {
+                details to items
+            }
+            .filter { (details, items) -> details != null && items.isNotEmpty() }
+            .first() // Only load once for editing
+            .let { (details, items) ->
+                if (details != null) {
                     _uiState.update { state ->
                         state.copy(
                             lotNumber = details.lot.lotNumber,
@@ -93,7 +98,7 @@ class ReceiveLotViewModel @Inject constructor(
                         )
                     }
                 }
-            }.collect()
+            }
         }
     }
 
@@ -209,11 +214,7 @@ class ReceiveLotViewModel @Inject constructor(
 
     fun complete() {
         Log.d("ReceiveLotViewModel", "complete() triggered")
-        // TEMPORARY: Bypass validation for testing
-        val validationResult = validate()
-        if (!validationResult) {
-            Log.d("ReceiveLotViewModel", "Validation failed, but bypassing for test")
-        }
+        if (!validate()) return
 
         val state = _uiState.value
         viewModelScope.launch {

@@ -143,6 +143,9 @@ fun AppNavGraph(navController: NavHostController) {
             DashboardScreen(
                 onReceiveLotClick = { navController.navigate(Screen.ReceiveNewLot.route) },
                 onSellItemClick = { navController.navigate(Screen.NewSale.route) },
+                onAddSaleClickWithId = { saleId ->
+                    navController.navigate(Screen.NewSale.createRoute(saleId))
+                },
                 onMoveInventoryClick = { navController.navigate(Screen.MoveInventory.route) },
                 onAddExpenseClick = { navController.navigate(Screen.AddExpense.route) },
                 onSeeAllActivityClick = { /* Handle */ },
@@ -253,7 +256,10 @@ fun AppNavGraph(navController: NavHostController) {
                 onEditLotClick = { lotId -> 
                     navController.navigate(Screen.ReceiveNewLot.createRoute(lotId))
                 },
-                onAddSaleClick = { navController.navigate(Screen.NewSale.route) },
+                onAddSaleClick = { navController.navigate(Screen.NewSale.createRoute()) },
+                onAddSaleClickWithId = { saleId ->
+                    navController.navigate(Screen.NewSale.createRoute(saleId))
+                },
                 onAddTransferClick = { navController.navigate(Screen.MoveInventory.route) }
             )
         }
@@ -281,11 +287,23 @@ fun AppNavGraph(navController: NavHostController) {
             )
         }
 
-        composable(Screen.NewSale.route) {
+        composable(
+            route = Screen.NewSale.route,
+            arguments = listOf(
+                navArgument("saleId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
             SellScreen(
                 onBackClick = { navController.popBackStack() },
-                onSaveDraftClick = { navController.popBackStack() },
-                onCompleteClick = { navController.popBackStack() }
+                onCompleteClick = {
+                    if (!navController.popBackStack(Screen.Transactions.route, inclusive = false)) {
+                        navController.popBackStack()
+                    }
+                }
             )
         }
 

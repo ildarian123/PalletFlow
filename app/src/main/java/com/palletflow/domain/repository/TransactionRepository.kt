@@ -13,6 +13,12 @@ interface TransactionRepository {
         endDate: Long
     ): Flow<List<Transaction>>
     suspend fun getTransactionById(id: String, userId: String): Transaction?
+    suspend fun isDocumentNumberUnique(documentNumber: String): Boolean
     suspend fun createTransaction(transaction: Transaction): Result<Transaction>
+    suspend fun updateTransaction(transaction: Transaction): Result<Transaction>
     suspend fun deleteTransaction(id: String, userId: String): Result<Unit>
+    
+    // New methods for sale details
+    suspend fun getSaleItems(transactionId: String): List<com.palletflow.data.local.entity.SaleItem>
+    suspend fun getSaleExpenses(transactionId: String): List<com.palletflow.data.local.entity.SaleExpense>
 }
