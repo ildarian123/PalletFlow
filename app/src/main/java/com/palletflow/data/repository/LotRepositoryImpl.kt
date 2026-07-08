@@ -170,7 +170,29 @@ class LotRepositoryImpl @Inject constructor(
                     lotExpenseDao.insertExpense(lotExpense)
                 }
                 
-                // TODO: Update Stock and Transaction records if needed
+                // 5. Update Transaction record
+                val existingTransaction = transactionDao.getTransactionByLotId(lot.id)
+                if (existingTransaction != null) {
+                    val updatedTransaction = existingTransaction.copy(
+                        quantity = items.sumOf { it.quantity },
+                        amount = lot.purchasePrice + expenses.sumOf { it.amount },
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    transactionDao.updateTransaction(updatedTransaction)
+                    Log.d("LotRepository", "Updated transaction for lot ${lot.id}")
+                } else {
+                    // Create if missing for some reason
+                    val newTransaction = Transaction(
+                        userId = lot.userId,
+                        type = TransactionType.INCOMING,
+                        status = TransactionStatus.COMPLETED,
+                        lotId = lot.id,
+                        quantity = items.sumOf { it.quantity },
+                        amount = lot.purchasePrice + expenses.sumOf { it.amount },
+                        notes = "Lot ${lot.lotNumber} received"
+                    )
+                    transactionDao.insertTransaction(newTransaction)
+                }
             }
             Log.d("LotRepository", "updateLotWithItems completed successfully")
             Result.success(lot)

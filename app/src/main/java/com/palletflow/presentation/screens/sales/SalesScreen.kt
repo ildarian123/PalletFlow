@@ -37,6 +37,7 @@ private val AccentTeal = Color(0xFF00C2A0)
 private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val BorderColor = Color(0xFF2C2C2E)
+private val NegativeRed = Color(0xFFFF453A)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -207,6 +208,47 @@ fun SalesScreenContent(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    item {
+                        val totalAmount = uiState.filteredTransactions.sumOf { it.amount }
+                        val totalQty = uiState.filteredTransactions.sumOf { it.quantity }
+                        
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = SurfaceColor.copy(alpha = 0.5f)),
+                            border = BorderStroke(1.dp, BorderColor)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = when(uiState.selectedTab) {
+                                            0 -> "Total Value"
+                                            1 -> "Total Revenue"
+                                            else -> "Total Items"
+                                        },
+                                        color = TextSecondary,
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        text = if (uiState.selectedTab == 2) "$totalQty units" else "$${String.format("%.2f", totalAmount)}",
+                                        color = if (uiState.selectedTab == 1) AccentTeal else TextPrimary,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 20.sp
+                                    )
+                                }
+                                if (uiState.selectedTab != 2) {
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("Total Quantity", color = TextSecondary, fontSize = 12.sp)
+                                        Text("$totalQty units", color = TextPrimary, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
                     items(uiState.filteredTransactions) { transaction ->
                         TransactionCard(
                             transaction = transaction,
@@ -337,7 +379,7 @@ fun TransactionCard(transaction: Transaction, onClick: () -> Unit = {}, onLongCl
             
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = transaction.notes ?: "No description",
+                    text = (transaction.notes ?: "No description").replace("Lot ", ""),
                     color = TextPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
@@ -351,12 +393,26 @@ fun TransactionCard(transaction: Transaction, onClick: () -> Unit = {}, onLongCl
             }
             
             Column(horizontalAlignment = Alignment.End) {
+                val (amountText, amountColor) = when (transaction.type) {
+                    TransactionType.SALE -> "+$${String.format("%.2f", transaction.amount)}" to AccentTeal
+                    TransactionType.INCOMING -> "-$${String.format("%.2f", transaction.amount)}" to NegativeRed
+                    TransactionType.TRANSFER -> "${transaction.quantity} units" to TextPrimary
+                }
+                
                 Text(
-                    text = if (transaction.type == TransactionType.SALE) "+$${String.format("%.2f", transaction.amount)}" else "${transaction.quantity} units",
-                    color = if (transaction.type == TransactionType.SALE) AccentTeal else TextPrimary,
+                    text = amountText,
+                    color = amountColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
+                
+                if (transaction.type != TransactionType.TRANSFER) {
+                    Text(
+                        text = "${transaction.quantity} units",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
                 Text(
                     text = transaction.status.name,
                     color = when(transaction.status) {

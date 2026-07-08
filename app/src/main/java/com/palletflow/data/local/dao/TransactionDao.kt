@@ -50,6 +50,9 @@ interface TransactionDao {
     """)
     suspend fun getTransactionById(id: String, userId: String): Transaction?
 
+    @Query("SELECT * FROM transactions WHERE lotId = :lotId LIMIT 1")
+    suspend fun getTransactionByLotId(lotId: String): Transaction?
+
     @Query("DELETE FROM transactions WHERE id = :id AND userId = :userId")
     suspend fun deleteTransactionById(id: String, userId: String)
 }

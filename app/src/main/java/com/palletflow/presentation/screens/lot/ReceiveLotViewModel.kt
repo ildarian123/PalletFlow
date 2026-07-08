@@ -206,11 +206,10 @@ class ReceiveLotViewModel @Inject constructor(
                     warehouses.value.firstOrNull()?.id ?: "TEST_WAREHOUSE"
                 } else state.warehouseId
 
-                val finalPurchasePrice = if (state.purchasePrice.toDoubleOrNull() == null) {
-                    100.0
-                } else state.purchasePrice.toDouble()
+                val finalPurchasePrice = state.purchasePrice.toDoubleOrNull() ?: 0.0
 
-                val finalItems = if (state.items.isEmpty()) {
+                val finalItems = if (state.items.isEmpty() && lotId == null) {
+                    // Only use fallback for items if it's a NEW lot and we are bypassing validation
                     val firstItem = availableItems.value.firstOrNull()
                     if (firstItem != null) {
                         listOf(ItemToReceive(firstItem.id, 1))
