@@ -60,8 +60,12 @@ class ReceiveLotViewModel @Inject constructor(
     private fun loadLotData(id: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            getLotFullDetailsUseCase(id).collectLatest { details ->
-                if (details != null) {
+            
+            combine(
+                getLotFullDetailsUseCase(id),
+                availableItems
+            ) { details, items ->
+                if (details != null && items.isNotEmpty()) {
                     _uiState.update { state ->
                         state.copy(
                             lotNumber = details.lot.lotNumber,
@@ -70,10 +74,13 @@ class ReceiveLotViewModel @Inject constructor(
                             purchasePrice = details.lot.purchasePrice.toString(),
                             notes = details.lot.notes ?: "",
                             items = details.items.map { lotItem ->
+                                val item = items.find { it.id == lotItem.itemId }
                                 ReceiveLotUiState.ItemRow(
                                     itemId = lotItem.itemId,
-                                    itemName = availableItems.value.find { it.id == lotItem.itemId }?.name ?: "Unknown",
-                                    quantity = lotItem.quantity
+                                    itemName = item?.name ?: "Unknown",
+                                    quantity = lotItem.quantity,
+                                    price = lotItem.unitPrice?.toString() ?: "",
+                                    photoUrl = item?.photoPath
                                 )
                             },
                             expenses = details.expenses.map { lotExpense ->
@@ -86,7 +93,7 @@ class ReceiveLotViewModel @Inject constructor(
                         )
                     }
                 }
-            }
+            }.collect()
         }
     }
 
@@ -121,20 +128,35 @@ class ReceiveLotViewModel @Inject constructor(
         val newItem = ReceiveLotUiState.ItemRow(
             itemId = itemId,
             itemName = item.name,
-            quantity = quantity
+            quantity = quantity,
+            price = "",
+            photoUrl = item.photoPath
         )
 
-        _uiState.update { 
-            it.copy(
-                items = it.items + newItem,
+        _uiState.update { state ->
+            val updatedItems = state.items + newItem
+            state.copy(
+                items = updatedItems,
                 itemError = null
             )
         }
     }
 
+    fun onItemPriceChange(index: Int, price: String) {
+        _uiState.update { state ->
+            state.copy(
+                items = state.items.mapIndexed { i, item ->
+                    if (i == index) item.copy(price = price) else item
+                }
+            )
+        }
+    }
+
     fun removeItem(index: Int) {
-        _uiState.update { 
-            it.copy(items = it.items.filterIndexed { i, _ -> i != index })
+        _uiState.update { state ->
+            state.copy(
+                items = state.items.filterIndexed { i, _ -> i != index }
+            )
         }
     }
 
@@ -212,13 +234,19 @@ class ReceiveLotViewModel @Inject constructor(
                     // Only use fallback for items if it's a NEW lot and we are bypassing validation
                     val firstItem = availableItems.value.firstOrNull()
                     if (firstItem != null) {
-                        listOf(ItemToReceive(firstItem.id, 1))
+                        listOf(ItemToReceive(firstItem.id, 1, 0.0))
                     } else {
                         Log.e("ReceiveLotViewModel", "NO ITEMS IN DB, cannot bypass item validation fully")
                         emptyList()
                     }
                 } else {
-                    state.items.map { ItemToReceive(it.itemId, it.quantity) }
+                    state.items.map { 
+                        ItemToReceive(
+                            itemId = it.itemId, 
+                            quantity = it.quantity,
+                            unitPrice = it.price.toDoubleOrNull()
+                        ) 
+                    }
                 }
 
                 // Validate lot number is unique (only if creating a new lot)
@@ -332,7 +360,9 @@ data class ReceiveLotUiState(
     data class ItemRow(
         val itemId: String,
         val itemName: String,
-        val quantity: Int
+        val quantity: Int,
+        val price: String = "",
+        val photoUrl: String? = null
     )
 
     data class ExpenseRow(
@@ -341,5 +371,10 @@ data class ReceiveLotUiState(
     )
 
     val totalCost: Double
-        get() = (purchasePrice.toDoubleOrNull() ?: 0.0) + expenses.sumOf { it.amount }
+        get() {
+            val basePrice = purchasePrice.toDoubleOrNull() ?: 0.0
+            val itemsSum = items.sumOf { (it.price.toDoubleOrNull() ?: 0.0) * it.quantity }
+            val expensesSum = expenses.sumOf { it.amount }
+            return basePrice + itemsSum + expensesSum
+        }
 }

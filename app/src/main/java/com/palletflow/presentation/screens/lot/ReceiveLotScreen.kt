@@ -4,6 +4,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -28,8 +29,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.palletflow.data.local.entity.Item
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.palletflow.data.local.entity.Supplier
 import com.palletflow.data.local.entity.Warehouse
 import kotlinx.coroutines.delay
@@ -77,6 +79,7 @@ fun ReceiveLotScreen(
         onSupplierChange = viewModel::onSupplierChange,
         onWarehouseChange = viewModel::onWarehouseChange,
         onAddItem = viewModel::addItem,
+        onItemPriceChange = viewModel::onItemPriceChange,
         onRemoveItem = viewModel::removeItem,
         onAddExpense = viewModel::addExpense,
         onRemoveExpense = viewModel::removeExpense,
@@ -102,6 +105,7 @@ private fun ReceiveLotContent(
     onSupplierChange: (String) -> Unit,
     onWarehouseChange: (String) -> Unit,
     onAddItem: (String, Int) -> Unit,
+    onItemPriceChange: (Int, String) -> Unit,
     onRemoveItem: (Int) -> Unit,
     onAddExpense: (String, Double) -> Unit,
     onRemoveExpense: (Int) -> Unit,
@@ -157,17 +161,6 @@ private fun ReceiveLotContent(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
             )
         },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    if (selectedTab == 0) showItemSheet = true else showExpenseSheet = true
-                },
-                containerColor = AccentTeal,
-                contentColor = Color.White,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text(if (selectedTab == 0) "Add Item" else "Add Expense") }
-            )
-        },
         bottomBar = {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -181,7 +174,20 @@ private fun ReceiveLotContent(
                 ) {
                     Column {
                         Text("Total Cost", color = TextSecondary, fontSize = 12.sp)
-                        Text("$${String.format("%.2f", uiState.totalCost)}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                        Text("$${String.format(Locale.US, "%.2f", uiState.totalCost)}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            if (selectedTab == 0) showItemSheet = true else showExpenseSheet = true
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (selectedTab == 0) "Add Item" else "Add Expense", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -347,8 +353,12 @@ private fun ReceiveLotContent(
                             ) 
                         }
                     } else {
-                        items(uiState.items) { item ->
-                            LotItemRow(item, onRemove = { onRemoveItem(uiState.items.indexOf(item)) })
+                        itemsIndexed(uiState.items) { index, item ->
+                            LotItemRow(
+                                item = item,
+                                onPriceChange = { onItemPriceChange(index, it) },
+                                onRemove = { onRemoveItem(index) }
+                            )
                         }
                     }
                 } else {
@@ -358,14 +368,14 @@ private fun ReceiveLotContent(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("Total Expenses:", color = TextSecondary)
-                            Text("$${String.format("%.2f", uiState.expenses.sumOf { it.amount })}", color = AccentTeal, fontWeight = FontWeight.Bold)
+                            Text("$${String.format(Locale.US, "%.2f", uiState.expenses.sumOf { it.amount })}", color = AccentTeal, fontWeight = FontWeight.Bold)
                         }
                     }
                     if (uiState.expenses.isEmpty()) {
                         item { EmptyTabState(Icons.Default.Receipt, "No extra expenses", "Tap + to add shipping, labor or other costs") }
                     } else {
-                        items(uiState.expenses) { expense ->
-                            ExpenseRow(expense, onRemove = { onRemoveExpense(uiState.expenses.indexOf(expense)) })
+                        itemsIndexed(uiState.expenses) { index, expense ->
+                            ExpenseRow(expense, onRemove = { onRemoveExpense(index) })
                         }
                     }
                 }
@@ -446,7 +456,11 @@ private fun EmptyTabState(icon: ImageVector, title: String, subtitle: String, is
 }
 
 @Composable
-private fun LotItemRow(item: ReceiveLotUiState.ItemRow, onRemove: () -> Unit) {
+private fun LotItemRow(
+    item: ReceiveLotUiState.ItemRow,
+    onPriceChange: (String) -> Unit,
+    onRemove: () -> Unit
+) {
     Card(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
@@ -456,15 +470,48 @@ private fun LotItemRow(item: ReceiveLotUiState.ItemRow, onRemove: () -> Unit) {
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(PlaceholderColor), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(PlaceholderColor),
+                contentAlignment = Alignment.Center
+            ) {
+                if (item.photoUrl != null) {
+                    AsyncImage(
+                        model = item.photoUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
+                }
             }
+            
             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(item.itemName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Quantity: ${item.quantity}", color = TextSecondary, fontSize = 12.sp)
             }
+            
             Column(horizontalAlignment = Alignment.End) {
-                Text("x${item.quantity}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                IconButton(onClick = onRemove, modifier = Modifier.size(20.dp)) {
+                OutlinedTextField(
+                    value = item.price,
+                    onValueChange = onPriceChange,
+                    modifier = Modifier.width(90.dp),
+                    placeholder = { Text("Price", color = TextSecondary, fontSize = 12.sp) },
+                    prefix = { Text("$", color = AccentTeal, fontSize = 12.sp) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = TextPrimary),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentTeal,
+                        unfocusedBorderColor = PlaceholderColor
+                    )
+                )
+                
+                IconButton(onClick = onRemove, modifier = Modifier.size(28.dp).padding(top = 4.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(16.dp))
                 }
             }
@@ -490,7 +537,7 @@ private fun ExpenseRow(expense: ReceiveLotUiState.ExpenseRow, onRemove: () -> Un
                 Text(expense.expenseName, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("$${String.format("%.2f", expense.amount)}", color = TextPrimary, fontWeight = FontWeight.Bold)
+                Text("$${String.format(Locale.US, "%.2f", expense.amount)}", color = TextPrimary, fontWeight = FontWeight.Bold)
                 IconButton(onClick = onRemove, modifier = Modifier.size(20.dp).padding(start = 8.dp)) {
                     Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(16.dp))
                 }
@@ -819,6 +866,7 @@ fun ReceiveLotScreenPreview() {
             onSupplierChange = {},
             onWarehouseChange = {},
             onAddItem = { _, _ -> },
+            onItemPriceChange = { _, _ -> },
             onRemoveItem = {},
             onAddExpense = { _, _ -> },
             onRemoveExpense = {},

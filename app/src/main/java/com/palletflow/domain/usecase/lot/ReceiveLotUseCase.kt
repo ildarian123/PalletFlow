@@ -69,7 +69,8 @@ class ReceiveLotUseCase @Inject constructor(
 
 data class ItemToReceive(
     val itemId: String,
-    val quantity: Int
+    val quantity: Int,
+    val unitPrice: Double? = null
 )
 
 data class ExpenseToAdd(

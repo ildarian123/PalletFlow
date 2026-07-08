@@ -58,7 +58,8 @@ class LotRepositoryImpl @Inject constructor(
                     val lotItem = LotItem(
                         lotId = lot.id,
                         itemId = item.itemId,
-                        quantity = item.quantity
+                        quantity = item.quantity,
+                        unitPrice = item.unitPrice
                     )
                     lotItemDao.insertLotItem(lotItem)
                 }
@@ -101,13 +102,16 @@ class LotRepositoryImpl @Inject constructor(
 
                 // 5. Create Incoming Transaction
                 Log.d("LotRepository", "Creating transaction record...")
+                val totalItemsCost = items.sumOf { (it.unitPrice ?: 0.0) * it.quantity }
+                val totalExpenses = expenses.sumOf { it.amount }
+                
                 val transaction = Transaction(
                     userId = lot.userId,
                     type = TransactionType.INCOMING,
                     status = TransactionStatus.COMPLETED,
                     lotId = lot.id,
                     quantity = items.sumOf { it.quantity },
-                    amount = lot.purchasePrice + expenses.sumOf { it.amount },
+                    amount = lot.purchasePrice + totalItemsCost + totalExpenses,
                     warehouseFromId = null,
                     warehouseToId = lot.warehouseId,
                     notes = "Lot ${lot.lotNumber} received"
@@ -154,7 +158,8 @@ class LotRepositoryImpl @Inject constructor(
                     val lotItem = LotItem(
                         lotId = lot.id,
                         itemId = item.itemId,
-                        quantity = item.quantity
+                        quantity = item.quantity,
+                        unitPrice = item.unitPrice
                     )
                     lotItemDao.insertLotItem(lotItem)
                 }
@@ -172,10 +177,14 @@ class LotRepositoryImpl @Inject constructor(
                 
                 // 5. Update Transaction record
                 val existingTransaction = transactionDao.getTransactionByLotId(lot.id)
+                val totalItemsCost = items.sumOf { (it.unitPrice ?: 0.0) * it.quantity }
+                val totalExpenses = expenses.sumOf { it.amount }
+                val totalAmount = lot.purchasePrice + totalItemsCost + totalExpenses
+
                 if (existingTransaction != null) {
                     val updatedTransaction = existingTransaction.copy(
                         quantity = items.sumOf { it.quantity },
-                        amount = lot.purchasePrice + expenses.sumOf { it.amount },
+                        amount = totalAmount,
                         updatedAt = System.currentTimeMillis()
                     )
                     transactionDao.updateTransaction(updatedTransaction)
@@ -188,7 +197,7 @@ class LotRepositoryImpl @Inject constructor(
                         status = TransactionStatus.COMPLETED,
                         lotId = lot.id,
                         quantity = items.sumOf { it.quantity },
-                        amount = lot.purchasePrice + expenses.sumOf { it.amount },
+                        amount = totalAmount,
                         notes = "Lot ${lot.lotNumber} received"
                     )
                     transactionDao.insertTransaction(newTransaction)
