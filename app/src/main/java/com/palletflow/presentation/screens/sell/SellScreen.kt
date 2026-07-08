@@ -1,5 +1,6 @@
 package com.palletflow.presentation.screens.sell
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -57,6 +58,7 @@ fun SellScreen(
     val warehouses by viewModel.warehouses.collectAsStateWithLifecycle()
     
     var selectedTab by remember { mutableIntStateOf(0) }
+    var isHeaderExpanded by remember { mutableStateOf(true) }
     var showItemSheet by remember { mutableStateOf(false) }
     var showExpenseSheet by remember { mutableStateOf(false) }
 
@@ -135,6 +137,8 @@ fun SellScreen(
                     SaleInfoHeader(
                         uiState = uiState,
                         warehouses = warehouses,
+                        isExpanded = isHeaderExpanded,
+                        onToggleExpand = { isHeaderExpanded = !isHeaderExpanded },
                         onPlatformSelect = viewModel::onPlatformChange,
                         onWarehouseSelect = viewModel::onWarehouseChange
                     )
@@ -142,13 +146,13 @@ fun SellScreen(
 
                 // Sticky Tabs
                 stickyHeader {
-                    TabRow(
+                    SecondaryTabRow(
                         selectedTabIndex = selectedTab,
                         containerColor = DarkBackground,
                         contentColor = AccentTeal,
-                        indicator = { tabPositions ->
+                        indicator = {
                             TabRowDefaults.SecondaryIndicator(
-                                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                modifier = Modifier.tabIndicatorOffset(selectedTab),
                                 color = AccentTeal
                             )
                         },
@@ -258,6 +262,8 @@ fun SellScreen(
 private fun SaleInfoHeader(
     uiState: SellUiState,
     warehouses: List<Warehouse>,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
     onPlatformSelect: (String) -> Unit,
     onWarehouseSelect: (String) -> Unit
 ) {
@@ -290,78 +296,92 @@ private fun SaleInfoHeader(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            AnimatedVisibility(visible = isExpanded) {
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            // Platform Selector
-            Text("Platform", color = TextSecondary, fontSize = 12.sp)
-            uiState.platformError?.let { Text(it, color = ErrorRed, fontSize = 10.sp) }
-            Spacer(modifier = Modifier.height(8.dp))
-            val platforms = listOf("eBay", "Facebook", "Cash", "Bin Store")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(platforms) { platform ->
-                    FilterChip(
-                        selected = uiState.platform == platform,
-                        onClick = { onPlatformSelect(platform) },
-                        label = { Text(platform) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = AccentTeal,
-                            selectedLabelColor = DarkBackground,
-                            containerColor = PlaceholderColor,
-                            labelColor = TextSecondary
-                        ),
-                        border = null,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Warehouse Selector
-            Text("Warehouse", color = TextSecondary, fontSize = 12.sp)
-            uiState.warehouseError?.let { Text(it, color = ErrorRed, fontSize = 10.sp) }
-            Spacer(modifier = Modifier.height(8.dp))
-            ExposedDropdownMenuBox(
-                expanded = warehouseExpanded,
-                onExpandedChange = { warehouseExpanded = it }
-            ) {
-                val selectedWarehouseName = warehouses.find { it.id == uiState.warehouseId }?.name ?: "Select Warehouse"
-                OutlinedTextField(
-                    value = selectedWarehouseName,
-                    onValueChange = {},
-                    readOnly = true,
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = warehouseExpanded) },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentTeal,
-                        unfocusedBorderColor = PlaceholderColor,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    )
-                )
-                ExposedDropdownMenu(
-                    expanded = warehouseExpanded,
-                    onDismissRequest = { warehouseExpanded = false },
-                    modifier = Modifier.background(SurfaceColor)
-                ) {
-                    warehouses.forEach { warehouse ->
-                        DropdownMenuItem(
-                            text = { Text(warehouse.name, color = TextPrimary) },
-                            onClick = {
-                                onWarehouseSelect(warehouse.id)
-                                warehouseExpanded = false
-                            }
-                        )
+                    // Platform Selector
+                    Text("Platform", color = TextSecondary, fontSize = 12.sp)
+                    uiState.platformError?.let { Text(it, color = ErrorRed, fontSize = 10.sp) }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val platforms = listOf("eBay", "Facebook", "Cash", "Bin Store")
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(platforms) { platform ->
+                            FilterChip(
+                                selected = uiState.platform == platform,
+                                onClick = { onPlatformSelect(platform) },
+                                label = { Text(platform) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = AccentTeal,
+                                    selectedLabelColor = DarkBackground,
+                                    containerColor = PlaceholderColor,
+                                    labelColor = TextSecondary
+                                ),
+                                border = null,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Warehouse Selector
+                    Text("Warehouse", color = TextSecondary, fontSize = 12.sp)
+                    uiState.warehouseError?.let { Text(it, color = ErrorRed, fontSize = 10.sp) }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ExposedDropdownMenuBox(
+                        expanded = warehouseExpanded,
+                        onExpandedChange = { warehouseExpanded = it }
+                    ) {
+                        val selectedWarehouseName = warehouses.find { it.id == uiState.warehouseId }?.name ?: "Select Warehouse"
+                        OutlinedTextField(
+                            value = selectedWarehouseName,
+                            onValueChange = {},
+                            readOnly = true,
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = warehouseExpanded) },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentTeal,
+                                unfocusedBorderColor = PlaceholderColor,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            )
+                        )
+                        ExposedDropdownMenu(
+                            expanded = warehouseExpanded,
+                            onDismissRequest = { warehouseExpanded = false },
+                            modifier = Modifier.background(SurfaceColor)
+                        ) {
+                            warehouses.forEach { warehouse ->
+                                DropdownMenuItem(
+                                    text = { Text(warehouse.name, color = TextPrimary) },
+                                    onClick = {
+                                        onWarehouseSelect(warehouse.id)
+                                        warehouseExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = PlaceholderColor, modifier = Modifier.padding(vertical = 12.dp))
+
+                    SummaryMetricRow("Items Total:", "$${String.format(Locale.US, "%.2f", uiState.totalRevenue)}", TextPrimary)
+                    SummaryMetricRow("Expenses:", "-$${String.format(Locale.US, "%.2f", uiState.totalExpenses)}", ErrorRed)
+                    SummaryMetricRow("Net Revenue:", "$${String.format(Locale.US, "%.2f", uiState.netRevenue)}", AccentTeal, isLarge = true)
                 }
             }
 
-            Divider(color = PlaceholderColor, modifier = Modifier.padding(vertical = 12.dp))
-
-            SummaryMetricRow("Items Total:", "$${String.format(Locale.US, "%.2f", uiState.totalRevenue)}", TextPrimary)
-            SummaryMetricRow("Expenses:", "-$${String.format(Locale.US, "%.2f", uiState.totalExpenses)}", ErrorRed)
-            SummaryMetricRow("Net Revenue:", "$${String.format(Locale.US, "%.2f", uiState.netRevenue)}", AccentTeal, isLarge = true)
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                IconButton(onClick = onToggleExpand, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Toggle Header",
+                        tint = AccentTeal
+                    )
+                }
+            }
         }
     }
 }
