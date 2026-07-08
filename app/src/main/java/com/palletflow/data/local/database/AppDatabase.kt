@@ -20,7 +20,7 @@ import com.palletflow.data.local.entity.*
         Stock::class,
         LotExpense::class
     ],
-    version = 7,
+    version = 9,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -183,6 +183,89 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """)
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_lot_expenses_lotId` ON `lot_expenses` (`lotId`)")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. Drop temporary table if it exists from a failed previous attempt
+                db.execSQL("DROP TABLE IF EXISTS `suppliers_new`")
+                
+                // 2. Create new table with the exact schema Room expects (no DEFAULT values)
+                db.execSQL("""
+                    CREATE TABLE `suppliers_new` (
+                        `id` TEXT NOT NULL,
+                        `userId` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `contactPerson` TEXT,
+                        `email` TEXT,
+                        `phone` TEXT,
+                        `address` TEXT,
+                        `notes` TEXT,
+                        `isFrequent` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                """)
+                
+                // 3. Copy data from old table. 
+                // We handle the case where some columns might already exist if a previous attempt partially succeeded.
+                // We check if 'contactPerson' exists in the old table to decide the source column.
+                val cursor = db.query("PRAGMA table_info(suppliers)")
+                var hasContactPerson = false
+                var hasUserId = false
+                while (cursor.moveToNext()) {
+                    val name = cursor.getString(cursor.getColumnIndexOrThrow("name"))
+                    if (name == "contactPerson") hasContactPerson = true
+                    if (name == "userId") hasUserId = true
+                }
+                cursor.close()
+
+                val contactSource = if (hasContactPerson) "contactPerson" else "contactName"
+                val userIdSource = if (hasUserId) "userId" else "''"
+                
+                db.execSQL("""
+                    INSERT INTO suppliers_new (id, userId, name, contactPerson, email, phone, address, notes, isFrequent, createdAt)
+                    SELECT id, $userIdSource, name, $contactSource, email, phone, address, 
+                           ${if (hasUserId) "notes" else "NULL"}, 
+                           ${if (hasUserId) "isFrequent" else "0"}, 
+                           createdAt FROM suppliers
+                """)
+                
+                // 4. Remove old table
+                db.execSQL("DROP TABLE suppliers")
+                
+                // 5. Rename new table
+                db.execSQL("ALTER TABLE suppliers_new RENAME TO suppliers")
+                
+                // 6. Create required index
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_suppliers_userId` ON `suppliers` (`userId`)")
+                
+                // Ensure stocks table indices are correct
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_stocks_userId` ON `stocks` (`userId`)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_stocks_userId_itemId_warehouseId` ON `stocks` (`userId`, `itemId`, `warehouseId`)")
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Drop old lot_items stub and create proper table
+                db.execSQL("DROP TABLE IF EXISTS `lot_items`")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `lot_items` (
+                        `id` TEXT NOT NULL,
+                        `lotId` TEXT NOT NULL,
+                        `itemId` TEXT NOT NULL,
+                        `quantity` INTEGER NOT NULL,
+                        `unitPrice` REAL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`),
+                        FOREIGN KEY(`lotId`) REFERENCES `lots`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`itemId`) REFERENCES `items`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lot_items_lotId` ON `lot_items` (`lotId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lot_items_itemId` ON `lot_items` (`itemId`)")
             }
         }
     }

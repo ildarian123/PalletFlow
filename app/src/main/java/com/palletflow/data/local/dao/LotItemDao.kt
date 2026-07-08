@@ -14,4 +14,10 @@ interface LotItemDao {
 
     @Delete
     suspend fun deleteLotItem(lotItem: LotItem)
+
+    @Query("SELECT * FROM lot_items WHERE lotId = :lotId")
+    fun getItemsByLot(lotId: String): Flow<List<LotItem>>
+
+    @Query("DELETE FROM lot_items WHERE lotId = :lotId")
+    suspend fun deleteItemsByLot(lotId: String)
 }

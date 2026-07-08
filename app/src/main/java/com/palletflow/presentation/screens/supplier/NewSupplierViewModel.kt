@@ -1,7 +1,7 @@
 package com.palletflow.presentation.screens.supplier
 
 import androidx.lifecycle.ViewModel
-import com.palletflow.domain.usecase.CreateSupplierUseCase
+import com.palletflow.domain.usecase.supplier.CreateSupplierUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 

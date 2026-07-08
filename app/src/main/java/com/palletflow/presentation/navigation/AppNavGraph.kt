@@ -154,6 +154,9 @@ fun AppNavGraph(navController: NavHostController) {
                 onInventoryItemClick = { itemId ->
                     navController.navigate(Screen.ItemDetail.createRoute(itemId))
                 },
+                onEditLotClick = { lotId ->
+                    navController.navigate(Screen.ReceiveNewLot.createRoute(lotId))
+                },
                 onAddItemClick = {
                     navController.navigate(Screen.AddItem.route)
                 },
@@ -247,16 +250,33 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.Transactions.route) {
             SalesScreen(
                 onAddLotClick = { navController.navigate(Screen.ReceiveNewLot.route) },
+                onEditLotClick = { lotId -> 
+                    navController.navigate(Screen.ReceiveNewLot.createRoute(lotId))
+                },
                 onAddSaleClick = { navController.navigate(Screen.NewSale.route) },
                 onAddTransferClick = { navController.navigate(Screen.MoveInventory.route) }
             )
         }
 
-        composable(Screen.ReceiveNewLot.route) {
+        composable(
+            route = Screen.ReceiveNewLot.route,
+            arguments = listOf(
+                navArgument("lotId") { 
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
             ReceiveLotScreen(
                 onBackClick = { navController.popBackStack() },
-                onCompleteClick = { navController.popBackStack() },
-                onAddNewSupplierClick = { /* Navigate to Add Supplier */ },
+                onCompleteClick = {
+                    // Try to pop back to Transactions, if not found just pop back
+                    if (!navController.popBackStack(Screen.Transactions.route, inclusive = false)) {
+                        navController.popBackStack()
+                    }
+                },
+                onAddNewSupplierClick = { /* Handle elsewhere if needed */ },
                 onCreateNewItemClick = { navController.navigate(Screen.AddItem.route) }
             )
         }

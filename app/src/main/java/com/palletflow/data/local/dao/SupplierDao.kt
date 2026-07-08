@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SupplierDao {
-    @Query("SELECT * FROM suppliers")
-    fun getAllSuppliers(): Flow<List<Supplier>>
+    @Query("SELECT * FROM suppliers WHERE userId = :userId")
+    fun getAllSuppliersByUser(userId: String): Flow<List<Supplier>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSupplier(supplier: Supplier)

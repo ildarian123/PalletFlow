@@ -48,6 +48,7 @@ fun DashboardScreen(
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onInventoryItemClick: (String) -> Unit,
+    onEditLotClick: (String) -> Unit,
     onAddItemClick: () -> Unit,
     currentTab: BottomNavTab,
     onTabSelected: (BottomNavTab) -> Unit,
@@ -68,6 +69,7 @@ fun DashboardScreen(
             onLogoutClick()
         },
         onInventoryItemClick = onInventoryItemClick,
+        onEditLotClick = onEditLotClick,
         onAddItemClick = onAddItemClick,
         currentTab = currentTab,
         onTabSelected = onTabSelected,
@@ -86,6 +88,7 @@ fun DashboardScreenContent(
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onInventoryItemClick: (String) -> Unit,
+    onEditLotClick: (String) -> Unit,
     onAddItemClick: () -> Unit,
     currentTab: BottomNavTab,
     onTabSelected: (BottomNavTab) -> Unit,
@@ -178,6 +181,7 @@ fun DashboardScreenContent(
                 BottomNavTab.Transactions -> {
                     SalesScreen(
                         onAddLotClick = onReceiveLotClick,
+                        onEditLotClick = onEditLotClick,
                         onAddSaleClick = onSellItemClick,
                         onAddTransferClick = onMoveInventoryClick
                     )

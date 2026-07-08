@@ -4,6 +4,6 @@ import com.palletflow.data.local.entity.Supplier
 import kotlinx.coroutines.flow.Flow
 
 interface SupplierRepository {
-    fun getAllSuppliers(): Flow<List<Supplier>>
-    suspend fun insertSupplier(supplier: Supplier)
+    fun getAllSuppliers(userId: String): Flow<List<Supplier>>
+    suspend fun createSupplier(supplier: Supplier): Result<Supplier>
 }

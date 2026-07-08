@@ -41,6 +41,7 @@ class SalesViewModel @Inject constructor(
         getSalesTransactionsUseCase(TransactionType.SALE),
         getTransfersTransactionsUseCase(TransactionType.TRANSFER)
     ) { incoming, sales, transfers ->
+        Log.d("SalesViewModel", "Transactions updated: Incoming=${incoming.size}, Sales=${sales.size}, Transfers=${transfers.size}")
         Triple(incoming, sales, transfers)
     }
 
@@ -136,11 +137,11 @@ class SalesViewModel @Inject constructor(
                     startOfDay to now
                 }
                 DateFilter.WEEK -> {
-                    val weekAgo = now - (7 * 24 * 60 * 60 * 1000)
+                    val weekAgo = now - (7L * 24 * 60 * 60 * 1000)
                     weekAgo to now
                 }
                 DateFilter.MONTH -> {
-                    val monthAgo = now - (30 * 24 * 60 * 60 * 1000)
+                    val monthAgo = now - (30L * 24 * 60 * 60 * 1000)
                     monthAgo to now
                 }
                 DateFilter.CUSTOM -> Long.MIN_VALUE to Long.MAX_VALUE

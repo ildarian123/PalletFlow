@@ -79,7 +79,10 @@ fun ReceiveLotScreen(
         onAddItem = viewModel::addItem,
         onRemoveItem = viewModel::removeItem,
         onAddExpense = viewModel::addExpense,
-        onRemoveExpense = viewModel::removeExpense
+        onRemoveExpense = viewModel::removeExpense,
+        onOpenAddSupplierSheet = viewModel::openAddSupplierSheet,
+        onCloseAddSupplierSheet = viewModel::closeAddSupplierSheet,
+        onSupplierCreated = viewModel::onSupplierCreated
     )
 }
 
@@ -101,7 +104,10 @@ private fun ReceiveLotContent(
     onAddItem: (String, Int) -> Unit,
     onRemoveItem: (Int) -> Unit,
     onAddExpense: (String, Double) -> Unit,
-    onRemoveExpense: (Int) -> Unit
+    onRemoveExpense: (Int) -> Unit,
+    onOpenAddSupplierSheet: () -> Unit,
+    onCloseAddSupplierSheet: () -> Unit,
+    onSupplierCreated: (Supplier) -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var isHeaderExpanded by remember { mutableStateOf(true) }
@@ -112,8 +118,14 @@ private fun ReceiveLotContent(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
+    LaunchedEffect(uiState.error, uiState.supplierError, uiState.warehouseError, uiState.priceError, uiState.itemError) {
+        val error = uiState.error 
+            ?: uiState.supplierError 
+            ?: uiState.warehouseError 
+            ?: uiState.priceError 
+            ?: uiState.itemError
+            
+        error?.let {
             snackbarHostState.showSnackbar(it)
         }
     }
@@ -218,11 +230,20 @@ private fun ReceiveLotContent(
 
                                     SelectorRow(
                                         label = "Supplier",
-                                        value = suppliers.find { it.id.toString() == uiState.supplierId }?.name ?: "Select Supplier",
+                                        value = suppliers.find { it.id == uiState.supplierId }?.name ?: "Select Supplier",
                                         icon = Icons.Default.Business,
                                         isError = uiState.supplierError != null,
                                         onClick = { showSupplierSheet = true }
                                     )
+
+                                    TextButton(
+                                        onClick = onOpenAddSupplierSheet,
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    ) {
+                                        Icon(Icons.Default.Add, null, tint = Color(0xFF00C2A0), modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Add New Supplier", color = Color(0xFF00C2A0))
+                                    }
 
                                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -317,7 +338,14 @@ private fun ReceiveLotContent(
                 // Tab Content
                 if (selectedTab == 0) {
                     if (uiState.items.isEmpty()) {
-                        item { EmptyTabState(Icons.Default.Inventory, "No items added yet", "Tap + to add items from your inventory") }
+                        item { 
+                            EmptyTabState(
+                                icon = Icons.Default.Inventory, 
+                                title = "No items added yet", 
+                                subtitle = "Tap + to add items from your inventory",
+                                isError = uiState.itemError != null
+                            ) 
+                        }
                     } else {
                         items(uiState.items) { item ->
                             LotItemRow(item, onRemove = { onRemoveItem(uiState.items.indexOf(item)) })
@@ -387,21 +415,33 @@ private fun ReceiveLotContent(
                     }
                 )
             }
+
+            if (uiState.showAddSupplierSheet) {
+                com.palletflow.presentation.common.AddSupplierSheet(
+                    onDismiss = onCloseAddSupplierSheet,
+                    onSupplierCreated = onSupplierCreated
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun EmptyTabState(icon: ImageVector, title: String, subtitle: String) {
+private fun EmptyTabState(icon: ImageVector, title: String, subtitle: String, isError: Boolean = false) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 64.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(48.dp), tint = PlaceholderColor)
+        Icon(
+            icon, 
+            contentDescription = null, 
+            modifier = Modifier.size(48.dp), 
+            tint = if (isError) ErrorRed else PlaceholderColor
+        )
         Spacer(modifier = Modifier.height(16.dp))
-        Text(title, color = TextSecondary)
-        Text(subtitle, color = TextSecondary, fontSize = 12.sp)
+        Text(title, color = if (isError) ErrorRed else TextSecondary)
+        Text(subtitle, color = if (isError) ErrorRed.copy(alpha = 0.7f) else TextSecondary, fontSize = 12.sp)
     }
 }
 
@@ -758,7 +798,7 @@ fun ReceiveLotScreenPreview() {
     )
     
     val mockSuppliers = listOf(
-        Supplier(id = "1", name = "Global Supplies", contactName = "John Doe", email = null, phone = null, address = null)
+        Supplier(id = "1", userId = "user123", name = "Global Supplies", contactPerson = "John Doe", email = null, phone = null, address = null)
     )
     val mockWarehouses = listOf(
         Warehouse(id = "1", userId = "user123", name = "Main Warehouse", address = "123 Industrial Way")
@@ -781,7 +821,10 @@ fun ReceiveLotScreenPreview() {
             onAddItem = { _, _ -> },
             onRemoveItem = {},
             onAddExpense = { _, _ -> },
-            onRemoveExpense = {}
+            onRemoveExpense = {},
+            onOpenAddSupplierSheet = {},
+            onCloseAddSupplierSheet = {},
+            onSupplierCreated = {}
         )
     }
 }

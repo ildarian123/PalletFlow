@@ -30,7 +30,7 @@ interface LotExpenseDao {
     suspend fun getTotalExpenses(lotId: String): Double
 
     @Query("""
-        DELETE FROM lot_expenses WHERE id = :id
+        DELETE FROM lot_expenses WHERE lotId = :lotId
     """)
-    suspend fun deleteExpenseById(id: String)
+    suspend fun deleteExpensesByLot(lotId: String)
 }

@@ -32,7 +32,9 @@ sealed class Screen(val route: String) {
     object LotDetail : Screen("lot_detail/{id}") {
         fun createRoute(id: String) = "lot_detail/$id"
     }
-    object ReceiveNewLot : Screen("receive_new_lot")
+    object ReceiveNewLot : Screen("receive_new_lot?lotId={lotId}") {
+        fun createRoute(lotId: String? = null) = if (lotId != null) "receive_new_lot?lotId=$lotId" else "receive_new_lot"
+    }
     
     object ItemDetail : Screen("item_detail/{itemId}") {
         fun createRoute(itemId: String) = "item_detail/$itemId"

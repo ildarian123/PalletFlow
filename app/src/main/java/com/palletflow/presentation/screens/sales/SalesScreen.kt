@@ -42,6 +42,7 @@ private val BorderColor = Color(0xFF2C2C2E)
 @Composable
 fun SalesScreen(
     onAddLotClick: () -> Unit,
+    onEditLotClick: (String) -> Unit,
     onAddSaleClick: () -> Unit,
     onAddTransferClick: () -> Unit,
     viewModel: SalesViewModel = hiltViewModel()
@@ -66,6 +67,7 @@ fun SalesScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
         onAddLotClick = onAddLotClick,
+        onEditLotClick = onEditLotClick,
         onAddSaleClick = onAddSaleClick,
         onAddTransferClick = onAddTransferClick,
         onSearchQueryChange = viewModel::onSearchQueryChange,
@@ -81,6 +83,7 @@ fun SalesScreenContent(
     uiState: SalesUiState,
     snackbarHostState: SnackbarHostState,
     onAddLotClick: () -> Unit,
+    onEditLotClick: (String) -> Unit,
     onAddSaleClick: () -> Unit,
     onAddTransferClick: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
@@ -207,6 +210,11 @@ fun SalesScreenContent(
                     items(uiState.filteredTransactions) { transaction ->
                         TransactionCard(
                             transaction = transaction,
+                            onClick = {
+                                if (transaction.type == TransactionType.INCOMING && transaction.lotId != null) {
+                                    onEditLotClick(transaction.lotId)
+                                }
+                            },
                             onLongClick = {
                                 selectedTransaction = transaction
                                 showContextMenu = true
@@ -223,7 +231,14 @@ fun SalesScreenContent(
             transaction = selectedTransaction!!,
             onDismiss = { showContextMenu = false; selectedTransaction = null },
             onViewDetailsClick = { /* TODO */ },
-            onEditClick = { /* TODO */ },
+            onEditClick = {
+                val transaction = selectedTransaction!!
+                if (transaction.type == TransactionType.INCOMING && transaction.lotId != null) {
+                    onEditLotClick(transaction.lotId)
+                }
+                showContextMenu = false
+                selectedTransaction = null
+            },
             onDeleteClick = onDeleteTransaction
         )
     }
@@ -285,12 +300,12 @@ fun FabSubmenuItem(label: String, icon: androidx.compose.ui.graphics.vector.Imag
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun TransactionCard(transaction: Transaction, onLongClick: () -> Unit) {
+fun TransactionCard(transaction: Transaction, onClick: () -> Unit = {}, onLongClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = { /* TODO */ },
+                onClick = onClick,
                 onLongClick = onLongClick
             ),
         shape = RoundedCornerShape(16.dp),
@@ -409,6 +424,7 @@ fun SalesScreenPreview() {
         onAddLotClick = {},
         onAddSaleClick = {},
         onAddTransferClick = {},
+        onEditLotClick = {},
         onSearchQueryChange = {},
         onDateFilterChange = {},
         onTabChange = {},
