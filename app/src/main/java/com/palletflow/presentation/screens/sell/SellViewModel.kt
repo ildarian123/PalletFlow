@@ -147,18 +147,6 @@ class SellViewModel @Inject constructor(
             return
         }
 
-        // Check stock availability
-        val stockInWarehouse = itemsWithStock.value.find { it.item.id == item.id }?.stockQuantity ?: 0
-        
-        // If we're editing, we need to consider what's already in this sale
-        val alreadyInSale = _uiState.value.items.find { it.itemId == item.id }?.quantity ?: 0
-        val effectiveStock = stockInWarehouse + (if (saleId != null) alreadyInSale else 0)
-
-        if (quantity > effectiveStock) {
-            _uiState.update { it.copy(itemError = "Not enough ${item.name} in stock (Available: $effectiveStock)") }
-            return
-        }
-
         val newItem = SellUiState.ItemRow(
             itemId = item.id,
             itemName = item.name,
@@ -167,18 +155,21 @@ class SellViewModel @Inject constructor(
             sellingPrice = 0.0  // User will enter this
         )
 
-        _uiState.update { 
-            // If item already exists in the list, update it instead of adding
-            val existingIndex = it.items.indexOfFirst { row -> row.itemId == item.id }
+        _uiState.update { state ->
+            // If item already exists in the list, update its quantity
+            val existingIndex = state.items.indexOfFirst { row -> row.itemId == item.id }
             val updatedItems = if (existingIndex != -1) {
-                it.items.toMutableList().apply {
-                    this[existingIndex] = newItem
+                state.items.toMutableList().apply {
+                    val existingItem = this[existingIndex]
+                    this[existingIndex] = existingItem.copy(
+                        quantity = existingItem.quantity + quantity
+                    )
                 }
             } else {
-                it.items + newItem
+                state.items + newItem
             }
             
-            it.copy(
+            state.copy(
                 items = updatedItems,
                 itemError = null
             )
@@ -291,18 +282,7 @@ class SellViewModel @Inject constructor(
 
         state.items.forEach { item ->
             if (item.sellingPrice <= 0) {
-                _uiState.update { it.copy(itemError = "All items must have valid selling price") }
-                isValid = false
-            }
-            
-            // Stock validation
-            val stockInWarehouse = itemsWithStock.value.find { it.item.id == item.itemId }?.stockQuantity ?: 0
-            // Note: During validation, if we are editing, we can't easily know the ORIGINAL quantities 
-            // from before any local changes in the VM. 
-            // However, the UseCase handles this accurately during save.
-            // For a basic check here:
-            if (item.quantity > stockInWarehouse && saleId == null) {
-                _uiState.update { it.copy(itemError = "Not enough ${item.itemName} in stock") }
+                _uiState.update { it.copy(itemError = "Price should not be empty or zero for ${item.itemName}") }
                 isValid = false
             }
         }
