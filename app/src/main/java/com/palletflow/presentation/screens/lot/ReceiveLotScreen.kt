@@ -57,19 +57,60 @@ fun ReceiveLotScreen(
     val warehouses by viewModel.warehouses.collectAsStateWithLifecycle()
     val availableItems by viewModel.availableItems.collectAsStateWithLifecycle()
 
+    LaunchedEffect(Unit) {
+        viewModel.saveEvent.collect { success ->
+            if (success) onCompleteClick()
+        }
+    }
+
+    ReceiveLotContent(
+        uiState = uiState,
+        suppliers = suppliers,
+        warehouses = warehouses,
+        availableItems = availableItems,
+        onBackClick = onBackClick,
+        onCompleteClick = viewModel::complete,
+        onAddNewSupplierClick = onAddNewSupplierClick,
+        onCreateNewItemClick = onCreateNewItemClick,
+        onPurchasePriceChange = viewModel::onPurchasePriceChange,
+        onNotesChange = viewModel::onNotesChange,
+        onSupplierChange = viewModel::onSupplierChange,
+        onWarehouseChange = viewModel::onWarehouseChange,
+        onAddItem = viewModel::addItem,
+        onRemoveItem = viewModel::removeItem,
+        onAddExpense = viewModel::addExpense,
+        onRemoveExpense = viewModel::removeExpense
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+private fun ReceiveLotContent(
+    uiState: ReceiveLotUiState,
+    suppliers: List<Supplier>,
+    warehouses: List<Warehouse>,
+    availableItems: List<Item>,
+    onBackClick: () -> Unit,
+    onCompleteClick: () -> Unit,
+    onAddNewSupplierClick: () -> Unit,
+    onCreateNewItemClick: () -> Unit,
+    onPurchasePriceChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit,
+    onSupplierChange: (String) -> Unit,
+    onWarehouseChange: (String) -> Unit,
+    onAddItem: (String, Int) -> Unit,
+    onRemoveItem: (Int) -> Unit,
+    onAddExpense: (String, Double) -> Unit,
+    onRemoveExpense: (Int) -> Unit
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var isHeaderExpanded by remember { mutableStateOf(true) }
     var showSupplierSheet by remember { mutableStateOf(false) }
     var showWarehouseSheet by remember { mutableStateOf(false) }
     var showItemSheet by remember { mutableStateOf(false) }
     var showExpenseSheet by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(Unit) {
-        viewModel.saveEvent.collect { success ->
-            if (success) onCompleteClick()
-        }
-    }
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -96,7 +137,7 @@ fun ReceiveLotScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        TextButton(onClick = viewModel::complete) {
+                        TextButton(onClick = onCompleteClick) {
                             Text("Complete", color = AccentTeal, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -114,12 +155,29 @@ fun ReceiveLotScreen(
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text(if (selectedTab == 0) "Add Item" else "Add Expense") }
             )
+        },
+        bottomBar = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = SurfaceColor,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp).navigationBarsPadding(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Total Cost", color = TextSecondary, fontSize = 12.sp)
+                        Text("$${String.format("%.2f", uiState.totalCost)}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    }
+                }
+            }
         }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 100.dp)
+                modifier = Modifier.fillMaxSize()
             ) {
                 // Header Section
                 item {
@@ -129,10 +187,17 @@ fun ReceiveLotScreen(
                         colors = CardDefaults.cardColors(containerColor = SurfaceColor)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Lot Info", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Lot Info", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                            
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Lot Number
+                            // Lot Number (Always visible)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -147,63 +212,77 @@ fun ReceiveLotScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            androidx.compose.animation.AnimatedVisibility(visible = isHeaderExpanded) {
+                                Column {
+                                    Spacer(modifier = Modifier.height(16.dp))
 
-                            SelectorRow(
-                                label = "Supplier",
-                                value = suppliers.find { it.id.toString() == uiState.supplierId }?.name ?: "Select Supplier",
-                                icon = Icons.Default.Business,
-                                isError = uiState.supplierError != null,
-                                onClick = { showSupplierSheet = true }
-                            )
+                                    SelectorRow(
+                                        label = "Supplier",
+                                        value = suppliers.find { it.id.toString() == uiState.supplierId }?.name ?: "Select Supplier",
+                                        icon = Icons.Default.Business,
+                                        isError = uiState.supplierError != null,
+                                        onClick = { showSupplierSheet = true }
+                                    )
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
-                            SelectorRow(
-                                label = "Warehouse",
-                                value = warehouses.find { it.id == uiState.warehouseId }?.name ?: "Select Warehouse",
-                                icon = Icons.Default.Warehouse,
-                                isError = uiState.warehouseError != null,
-                                onClick = { showWarehouseSheet = true }
-                            )
+                                    SelectorRow(
+                                        label = "Warehouse",
+                                        value = warehouses.find { it.id == uiState.warehouseId }?.name ?: "Select Warehouse",
+                                        icon = Icons.Default.Warehouse,
+                                        isError = uiState.warehouseError != null,
+                                        onClick = { showWarehouseSheet = true }
+                                    )
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
-                            Text("Purchase Price", color = TextSecondary, fontSize = 12.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = uiState.purchasePrice,
-                                onValueChange = viewModel::onPurchasePriceChange,
-                                modifier = Modifier.fillMaxWidth(),
-                                isError = uiState.priceError != null,
-                                placeholder = { Text("0.00", color = TextSecondary) },
-                                prefix = { Text("$", color = AccentTeal) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = AccentTeal,
-                                    unfocusedBorderColor = PlaceholderColor,
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent
-                                )
-                            )
+                                    Text("Purchase Price", color = TextSecondary, fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    OutlinedTextField(
+                                        value = uiState.purchasePrice,
+                                        onValueChange = onPurchasePriceChange,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        isError = uiState.priceError != null,
+                                        placeholder = { Text("0.00", color = TextSecondary) },
+                                        prefix = { Text("$", color = AccentTeal) },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = AccentTeal,
+                                            unfocusedBorderColor = PlaceholderColor,
+                                            focusedContainerColor = Color.Transparent,
+                                            unfocusedContainerColor = Color.Transparent
+                                        )
+                                    )
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
-                            OutlinedTextField(
-                                value = uiState.notes,
-                                onValueChange = viewModel::onNotesChange,
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("Optional notes...", color = TextSecondary) },
-                                minLines = 2,
-                                shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = AccentTeal,
-                                    unfocusedBorderColor = PlaceholderColor,
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent
-                                )
-                            )
+                                    OutlinedTextField(
+                                        value = uiState.notes,
+                                        onValueChange = onNotesChange,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        placeholder = { Text("Optional notes...", color = TextSecondary) },
+                                        minLines = 2,
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = AccentTeal,
+                                            unfocusedBorderColor = PlaceholderColor,
+                                            focusedContainerColor = Color.Transparent,
+                                            unfocusedContainerColor = Color.Transparent
+                                        )
+                                    )
+                                }
+                            }
+
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                IconButton(onClick = { isHeaderExpanded = !isHeaderExpanded }, modifier = Modifier.size(24.dp)) {
+                                    Icon(
+                                        imageVector = if (isHeaderExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Toggle Header",
+                                        tint = AccentTeal
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -241,7 +320,7 @@ fun ReceiveLotScreen(
                         item { EmptyTabState(Icons.Default.Inventory, "No items added yet", "Tap + to add items from your inventory") }
                     } else {
                         items(uiState.items) { item ->
-                            LotItemRow(item, onRemove = { viewModel.removeItem(uiState.items.indexOf(item)) })
+                            LotItemRow(item, onRemove = { onRemoveItem(uiState.items.indexOf(item)) })
                         }
                     }
                 } else {
@@ -258,26 +337,8 @@ fun ReceiveLotScreen(
                         item { EmptyTabState(Icons.Default.Receipt, "No extra expenses", "Tap + to add shipping, labor or other costs") }
                     } else {
                         items(uiState.expenses) { expense ->
-                            ExpenseRow(expense, onRemove = { viewModel.removeExpense(uiState.expenses.indexOf(expense)) })
+                            ExpenseRow(expense, onRemove = { onRemoveExpense(uiState.expenses.indexOf(expense)) })
                         }
-                    }
-                }
-            }
-
-            // Summary Card at bottom
-            Surface(
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-                color = SurfaceColor,
-                shadowElevation = 8.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp).navigationBarsPadding(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Total Cost", color = TextSecondary, fontSize = 12.sp)
-                        Text("$${String.format("%.2f", uiState.totalCost)}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     }
                 }
             }
@@ -288,7 +349,7 @@ fun ReceiveLotScreen(
                     suppliers = suppliers,
                     onDismiss = { showSupplierSheet = false },
                     onSupplierSelected = {
-                        viewModel.onSupplierChange(it)
+                        onSupplierChange(it)
                         showSupplierSheet = false
                     },
                     onAddNewSupplierClick = onAddNewSupplierClick
@@ -300,7 +361,7 @@ fun ReceiveLotScreen(
                     warehouses = warehouses,
                     onDismiss = { showWarehouseSheet = false },
                     onWarehouseSelected = {
-                        viewModel.onWarehouseChange(it)
+                        onWarehouseChange(it)
                         showWarehouseSheet = false
                     }
                 )
@@ -312,7 +373,7 @@ fun ReceiveLotScreen(
                     onDismiss = { showItemSheet = false },
                     onCreateNewItemClick = onCreateNewItemClick,
                     onItemAdded = { itemId, qty ->
-                        viewModel.addItem(itemId, qty)
+                        onAddItem(itemId, qty)
                     }
                 )
             }
@@ -321,7 +382,7 @@ fun ReceiveLotScreen(
                 AddExpenseSheet(
                     onDismiss = { showExpenseSheet = false },
                     onAddExpense = { name, amount ->
-                        viewModel.addExpense(name, amount)
+                        onAddExpense(name, amount)
                         showExpenseSheet = false
                     }
                 )
@@ -578,13 +639,16 @@ fun ItemSelectorSheet(
                 availableItems.filter { it.name.contains(searchQuery, ignoreCase = true) }
             }
 
-            val quantities = remember { mutableStateMapOf<String, String>() }
-
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(filteredItems) { item ->
-                    val qty = quantities[item.id] ?: ""
                     Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clickable {
+                                onItemAdded(item.id, 1)
+                                onDismiss()
+                            },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
                     ) {
@@ -596,25 +660,7 @@ fun ItemSelectorSheet(
                                 Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold)
                                 Text(item.type.name, color = TextSecondary, fontSize = 12.sp)
                             }
-                            OutlinedTextField(
-                                value = qty,
-                                onValueChange = { if (it.all { char -> char.isDigit() }) quantities[item.id] = it },
-                                modifier = Modifier.width(70.dp),
-                                placeholder = { Text("0", textAlign = TextAlign.Center) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                singleLine = true,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            IconButton(onClick = {
-                                val q = qty.toIntOrNull() ?: 0
-                                if (q > 0) {
-                                    onItemAdded(item.id, q)
-                                    quantities[item.id] = ""
-                                }
-                            }) {
-                                Icon(Icons.Default.Add, contentDescription = "Add", tint = AccentTeal)
-                            }
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
                         }
                     }
                 }
@@ -622,21 +668,12 @@ fun ItemSelectorSheet(
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(
                 onClick = onCreateNewItemClick,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentTeal),
                 border = BorderStroke(1.dp, AccentTeal),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Create New Item")
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Done", color = DarkBackground, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -703,5 +740,48 @@ fun AddExpenseSheet(
 @Preview(showBackground = true)
 @Composable
 fun ReceiveLotScreenPreview() {
-    // Requires mock/dummy data for full preview
+    val mockItems = listOf(
+        ReceiveLotUiState.ItemRow("1", "Pallet A", 10),
+        ReceiveLotUiState.ItemRow("2", "Box B", 5)
+    )
+    val mockExpenses = listOf(
+        ReceiveLotUiState.ExpenseRow("Shipping", 50.0),
+        ReceiveLotUiState.ExpenseRow("Handling", 20.0)
+    )
+    val mockUiState = ReceiveLotUiState(
+        lotNumber = "LOT-2024-05-20-1234",
+        supplierId = "1",
+        warehouseId = "1",
+        purchasePrice = "500.00",
+        items = mockItems,
+        expenses = mockExpenses
+    )
+    
+    val mockSuppliers = listOf(
+        Supplier(id = "1", name = "Global Supplies", contactName = "John Doe", email = null, phone = null, address = null)
+    )
+    val mockWarehouses = listOf(
+        Warehouse(id = "1", userId = "user123", name = "Main Warehouse", address = "123 Industrial Way")
+    )
+    
+    MaterialTheme {
+        ReceiveLotContent(
+            uiState = mockUiState,
+            suppliers = mockSuppliers,
+            warehouses = mockWarehouses,
+            availableItems = emptyList(),
+            onBackClick = {},
+            onCompleteClick = {},
+            onAddNewSupplierClick = {},
+            onCreateNewItemClick = {},
+            onPurchasePriceChange = {},
+            onNotesChange = {},
+            onSupplierChange = {},
+            onWarehouseChange = {},
+            onAddItem = { _, _ -> },
+            onRemoveItem = {},
+            onAddExpense = { _, _ -> },
+            onRemoveExpense = {}
+        )
+    }
 }
