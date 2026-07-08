@@ -426,3 +426,34 @@ fun ActivityItem(title: String, detail: String, detailColor: Color) {
         }
     }
 }
+
+@Preview(showBackground = true)
+@Composable
+fun DashboardPreview() {
+    DashboardContent(
+        uiState = DashboardUiState(
+            userName = "PalletFlow Demo",
+            totalProfit = "+$1,240.00",
+            itemsSold = "48",
+            activeLots = "12",
+            avgProfit = "$25.80",
+            recentActivities = listOf(
+                RecentActivityUiState(
+                    title = "Sold Samsung Tablet",
+                    detail = "+$120.00",
+                    detailColorType = ActivityDetailColorType.SUCCESS
+                ),
+                RecentActivityUiState(
+                    title = "Received #1043",
+                    detail = "-$850.00",
+                    detailColorType = ActivityDetailColorType.NORMAL
+                )
+            )
+        ),
+        onReceiveLotClick = {},
+        onSellItemClick = {},
+        onMoveInventoryClick = {},
+        onAddExpenseClick = {},
+        onSeeAllActivityClick = {}
+    )
+}

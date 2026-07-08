@@ -208,47 +208,7 @@ fun SalesScreenContent(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item {
-                        val totalAmount = uiState.filteredTransactions.sumOf { it.amount }
-                        val totalQty = uiState.filteredTransactions.sumOf { it.quantity }
-                        
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = SurfaceColor.copy(alpha = 0.5f)),
-                            border = BorderStroke(1.dp, BorderColor)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = when(uiState.selectedTab) {
-                                            0 -> "Total Value"
-                                            1 -> "Total Revenue"
-                                            else -> "Total Items"
-                                        },
-                                        color = TextSecondary,
-                                        fontSize = 12.sp
-                                    )
-                                    Text(
-                                        text = if (uiState.selectedTab == 2) "$totalQty units" else "$${String.format("%.2f", totalAmount)}",
-                                        color = if (uiState.selectedTab == 1) AccentTeal else TextPrimary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 20.sp
-                                    )
-                                }
-                                if (uiState.selectedTab != 2) {
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Text("Total Quantity", color = TextSecondary, fontSize = 12.sp)
-                                        Text("$totalQty units", color = TextPrimary, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    
                     items(uiState.filteredTransactions) { transaction ->
                         TransactionCard(
                             transaction = transaction,
@@ -413,15 +373,16 @@ fun TransactionCard(transaction: Transaction, onClick: () -> Unit = {}, onLongCl
                         fontSize = 11.sp
                     )
                 }
-                Text(
-                    text = transaction.status.name,
-                    color = when(transaction.status) {
-                        TransactionStatus.COMPLETED -> AccentTeal
-                        TransactionStatus.DRAFT -> Color.Gray
-                        else -> TextSecondary
-                    },
-                    fontSize = 11.sp
-                )
+                if (transaction.status != TransactionStatus.COMPLETED) {
+                    Text(
+                        text = transaction.status.name,
+                        color = when (transaction.status) {
+                            TransactionStatus.DRAFT -> Color.Gray
+                            else -> TextSecondary
+                        },
+                        fontSize = 11.sp
+                    )
+                }
             }
         }
     }
