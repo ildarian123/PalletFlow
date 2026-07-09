@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.palletflow.data.local.entity.Item
 import com.palletflow.data.local.entity.Warehouse
 
@@ -341,8 +342,23 @@ private fun MoveItemRow(item: MoveInventoryUiState.ItemRow, onRemove: () -> Unit
         colors = CardDefaults.cardColors(containerColor = SurfaceColor)
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(PlaceholderColor), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(PlaceholderColor),
+                contentAlignment = Alignment.Center
+            ) {
+                if (item.photoUrl != null) {
+                    AsyncImage(
+                        model = item.photoUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                } else {
+                    Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
+                }
             }
             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(item.itemName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -481,8 +497,23 @@ private fun ItemSelectorSheet(
                         colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
                     ) {
                         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(SurfaceColor), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(SurfaceColor),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (item.photoPath != null) {
+                                    AsyncImage(
+                                        model = item.photoPath,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
+                                }
                             }
                             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                 Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)

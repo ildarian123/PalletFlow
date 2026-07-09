@@ -232,4 +232,34 @@ class LotRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun deleteLot(lotId: String, userId: String): Result<Unit> {
+        Log.d("LotRepository", "deleteLot started for lot: $lotId")
+        return try {
+            database.withTransaction {
+                val lot = lotDao.getLotByIdSync(lotId) ?: throw Exception("Lot not found")
+                val items = lotItemDao.getItemsByLotSync(lotId)
+                
+                // 1. Revert stock impact
+                items.forEach { item ->
+                    stockDao.decrementQuantity(
+                        userId = userId,
+                        itemId = item.itemId,
+                        warehouseId = lot.warehouseId,
+                        quantity = item.quantity
+                    )
+                }
+                
+                // 2. Delete related records
+                lotItemDao.deleteItemsByLot(lotId)
+                lotExpenseDao.deleteExpensesByLot(lotId)
+                transactionDao.deleteTransactionByLotId(lotId)
+                lotDao.deleteLot(lot)
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("LotRepository", "Failed to delete lot", e)
+            Result.failure(e)
+        }
+    }
 }

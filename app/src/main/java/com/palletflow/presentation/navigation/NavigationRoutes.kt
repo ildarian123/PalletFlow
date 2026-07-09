@@ -51,7 +51,9 @@ sealed class Screen(val route: String) {
     object SellItem : Screen("sell_item/{id}") {
         fun createRoute(id: Int) = "sell_item/$id"
     }
-    object MoveInventory : Screen("move_inventory")
+    object MoveInventory : Screen("move_inventory?transferId={transferId}") {
+        fun createRoute(transferId: String? = null) = if (transferId != null) "move_inventory?transferId=$transferId" else "move_inventory"
+    }
     object MoveInventoryDetail : Screen("move_inventory_detail/{id}") {
         fun createRoute(id: Int) = "move_inventory_detail/$id"
     }

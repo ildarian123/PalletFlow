@@ -12,6 +12,9 @@ interface LotDao {
     @Query("SELECT * FROM lots WHERE id = :lotId")
     fun getLotById(lotId: String): Flow<Lot?>
 
+    @Query("SELECT * FROM lots WHERE id = :lotId LIMIT 1")
+    suspend fun getLotByIdSync(lotId: String): Lot?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLot(lot: Lot)
 

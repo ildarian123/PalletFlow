@@ -47,6 +47,7 @@ fun SalesScreen(
     onAddSaleClick: () -> Unit,
     onAddSaleClickWithId: (String) -> Unit,
     onAddTransferClick: () -> Unit,
+    onAddTransferClickWithId: (String) -> Unit,
     viewModel: SalesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -73,6 +74,7 @@ fun SalesScreen(
         onAddSaleClick = onAddSaleClick,
         onAddSaleClickWithId = onAddSaleClickWithId,
         onAddTransferClick = onAddTransferClick,
+        onAddTransferClickWithId = onAddTransferClickWithId,
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onDateFilterChange = viewModel::onDateFilterChange,
         onTabChange = viewModel::onTabChange,
@@ -90,6 +92,7 @@ fun SalesScreenContent(
     onAddSaleClick: () -> Unit,
     onAddSaleClickWithId: (String) -> Unit,
     onAddTransferClick: () -> Unit,
+    onAddTransferClickWithId: (String) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onDateFilterChange: (DateFilter) -> Unit,
     onTabChange: (Int) -> Unit,
@@ -226,7 +229,7 @@ fun SalesScreenContent(
                                         onAddSaleClickWithId(transaction.id)
                                     }
                                     TransactionType.TRANSFER -> {
-                                        onAddTransferClick()
+                                        onAddTransferClickWithId(transaction.id)
                                     }
                                 }
                             },
@@ -250,6 +253,8 @@ fun SalesScreenContent(
                 val transaction = selectedTransaction!!
                 if (transaction.type == TransactionType.INCOMING && transaction.lotId != null) {
                     onEditLotClick(transaction.lotId)
+                } else if (transaction.type == TransactionType.TRANSFER) {
+                    onAddTransferClickWithId(transaction.id)
                 }
                 showContextMenu = false
                 selectedTransaction = null
@@ -455,6 +460,7 @@ fun SalesScreenPreview() {
         onAddSaleClick = {},
         onAddSaleClickWithId = {},
         onAddTransferClick = {},
+        onAddTransferClickWithId = {},
         onEditLotClick = {},
         onSearchQueryChange = {},
         onDateFilterChange = {},

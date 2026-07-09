@@ -58,4 +58,7 @@ interface TransactionDao {
 
     @Query("DELETE FROM transactions WHERE id = :id AND userId = :userId")
     suspend fun deleteTransactionById(id: String, userId: String)
+
+    @Query("DELETE FROM transactions WHERE lotId = :lotId")
+    suspend fun deleteTransactionByLotId(lotId: String)
 }

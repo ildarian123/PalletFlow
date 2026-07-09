@@ -28,4 +28,5 @@ interface LotRepository {
     fun getLotExpenses(lotId: String): Flow<List<LotExpense>>
 
     suspend fun isLotNumberUnique(lotNumber: String): Boolean
+    suspend fun deleteLot(lotId: String, userId: String): Result<Unit>
 }

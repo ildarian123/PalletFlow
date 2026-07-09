@@ -45,6 +45,7 @@ fun DashboardScreen(
     onSellItemClick: () -> Unit,
     onAddSaleClickWithId: (String) -> Unit,
     onMoveInventoryClick: () -> Unit,
+    onAddTransferClickWithId: (String) -> Unit,
     onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
@@ -64,6 +65,7 @@ fun DashboardScreen(
         onSellItemClick = onSellItemClick,
         onAddSaleClickWithId = onAddSaleClickWithId,
         onMoveInventoryClick = onMoveInventoryClick,
+        onAddTransferClickWithId = onAddTransferClickWithId,
         onAddExpenseClick = onAddExpenseClick,
         onSeeAllActivityClick = onSeeAllActivityClick,
         onLogoutClick = {
@@ -87,6 +89,7 @@ fun DashboardScreenContent(
     onSellItemClick: () -> Unit,
     onAddSaleClickWithId: (String) -> Unit,
     onMoveInventoryClick: () -> Unit,
+    onAddTransferClickWithId: (String) -> Unit,
     onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
@@ -187,7 +190,8 @@ fun DashboardScreenContent(
                         onEditLotClick = onEditLotClick,
                         onAddSaleClick = onSellItemClick,
                         onAddSaleClickWithId = onAddSaleClickWithId,
-                        onAddTransferClick = onMoveInventoryClick
+                        onAddTransferClick = onMoveInventoryClick,
+                        onAddTransferClickWithId = onAddTransferClickWithId
                     )
                 }
                 else -> {

@@ -147,6 +147,9 @@ fun AppNavGraph(navController: NavHostController) {
                     navController.navigate(Screen.NewSale.createRoute(saleId))
                 },
                 onMoveInventoryClick = { navController.navigate(Screen.MoveInventory.route) },
+                onAddTransferClickWithId = { transferId ->
+                    navController.navigate(Screen.MoveInventory.createRoute(transferId))
+                },
                 onAddExpenseClick = { navController.navigate(Screen.AddExpense.route) },
                 onSeeAllActivityClick = { /* Handle */ },
                 onLogoutClick = {
@@ -260,7 +263,10 @@ fun AppNavGraph(navController: NavHostController) {
                 onAddSaleClickWithId = { saleId ->
                     navController.navigate(Screen.NewSale.createRoute(saleId))
                 },
-                onAddTransferClick = { navController.navigate(Screen.MoveInventory.route) }
+                onAddTransferClick = { navController.navigate(Screen.MoveInventory.route) },
+                onAddTransferClickWithId = { transferId ->
+                    navController.navigate(Screen.MoveInventory.createRoute(transferId))
+                }
             )
         }
 
@@ -307,7 +313,16 @@ fun AppNavGraph(navController: NavHostController) {
             )
         }
 
-        composable(Screen.MoveInventory.route) {
+        composable(
+            route = Screen.MoveInventory.route,
+            arguments = listOf(
+                navArgument("transferId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
             MoveInventoryScreen(
                 onBackClick = { navController.popBackStack() },
                 onConfirmClick = {
