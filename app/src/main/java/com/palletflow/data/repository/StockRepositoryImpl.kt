@@ -46,6 +46,16 @@ class StockRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun createStock(stock: Stock): Result<Unit> {
+        return try {
+            stockDao.insertStock(stock)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("StockRepository", "Failed to create stock", e)
+            Result.failure(e)
+        }
+    }
+
     override fun getStocksByUser(userId: String): Flow<List<Stock>> =
         stockDao.getStocksByUser(userId)
 }

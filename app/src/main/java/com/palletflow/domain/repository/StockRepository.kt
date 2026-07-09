@@ -7,5 +7,6 @@ interface StockRepository {
     suspend fun getStock(userId: String, itemId: String, warehouseId: String): Stock?
     suspend fun incrementQuantity(userId: String, itemId: String, warehouseId: String, quantity: Int): Result<Unit>
     suspend fun decrementQuantity(userId: String, itemId: String, warehouseId: String, quantity: Int): Result<Unit>
+    suspend fun createStock(stock: Stock): Result<Unit>
     fun getStocksByUser(userId: String): Flow<List<Stock>>
 }

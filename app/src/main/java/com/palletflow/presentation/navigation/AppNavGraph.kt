@@ -310,7 +310,12 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.MoveInventory.route) {
             MoveInventoryScreen(
                 onBackClick = { navController.popBackStack() },
-                onConfirmClick = { navController.popBackStack() }
+                onConfirmClick = {
+                    // Try to pop back to Transactions tab, if not just pop back
+                    if (!navController.popBackStack(Screen.Transactions.route, inclusive = false)) {
+                        navController.popBackStack()
+                    }
+                }
             )
         }
 

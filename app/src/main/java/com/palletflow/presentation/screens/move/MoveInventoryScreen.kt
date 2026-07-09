@@ -4,30 +4,28 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.palletflow.data.local.entity.Item
+import com.palletflow.data.local.entity.Warehouse
 
 private val DarkBackground = Color(0xFF121212)
 private val SurfaceColor = Color(0xFF1E1E1E)
@@ -36,34 +34,26 @@ private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val PlaceholderColor = Color(0xFF2C2C2E)
 private val ErrorRed = Color(0xFFFF453A)
-private val WarningAmber = Color(0xFFFF9500)
-
-data class MoveItemData(
-    val name: String,
-    val lotRef: String,
-    val condition: String,
-    val available: Int,
-    val selectedQty: String = "",
-    val conditionColor: Color
-)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MoveInventoryScreen(
     onBackClick: () -> Unit = {},
-    onConfirmClick: () -> Unit = {}
+    onConfirmClick: () -> Unit = {},
+    viewModel: MoveInventoryViewModel = hiltViewModel()
 ) {
-    var sourceWarehouse by remember { mutableStateOf<String?>(null) }
-    var destWarehouse by remember { mutableStateOf<String?>(null) }
-    var notes by remember { mutableStateOf("") }
-    
-    var showFromSheet by remember { mutableStateOf(false) }
-    var showToSheet by remember { mutableStateOf(false) }
-    var showItemSheet by remember { mutableStateOf(false) }
-    var showConfirmDialog by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val itemsWithStock by viewModel.itemsWithStock.collectAsStateWithLifecycle()
+    val warehouses by viewModel.warehouses.collectAsStateWithLifecycle()
 
-    val selectedItems = remember {
-        mutableStateListOf<MoveItemData>()
+    var showSourceSheet by remember { mutableStateOf(false) }
+    var showDestSheet by remember { mutableStateOf(false) }
+    var showItemSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        viewModel.saveEvent.collect { success ->
+            if (success) onConfirmClick()
+        }
     }
 
     Scaffold(
@@ -77,8 +67,16 @@ fun MoveInventoryScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = { showConfirmDialog = true }) {
-                        Text("Confirm", color = AccentTeal, fontWeight = FontWeight.Bold)
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp).padding(end = 16.dp),
+                            color = AccentTeal,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        TextButton(onClick = viewModel::confirm) {
+                            Text("Confirm", color = AccentTeal, fontWeight = FontWeight.Bold)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
@@ -99,20 +97,41 @@ fun MoveInventoryScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
+                // Error Banner
+                val activeError = uiState.error ?: uiState.itemError ?: uiState.sourceError ?: uiState.destError
+                activeError?.let { error ->
+                    item {
+                        Surface(
+                            color = ErrorRed.copy(alpha = 0.1f),
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = error,
+                                color = ErrorRed,
+                                modifier = Modifier.padding(12.dp),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
                 item {
                     MoveHeaderSection(
-                        sourceWarehouse = sourceWarehouse,
-                        destWarehouse = destWarehouse,
-                        notes = notes,
-                        onSourceClick = { showFromSheet = true },
-                        onDestClick = { showToSheet = true },
-                        onNotesChange = { notes = it },
-                        itemCount = selectedItems.size,
-                        totalUnits = selectedItems.sumOf { it.selectedQty.toIntOrNull() ?: 0 }
+                        transferNumber = uiState.transferNumber,
+                        sourceWarehouseId = uiState.sourceWarehouseId,
+                        destWarehouseId = uiState.destWarehouseId,
+                        warehouses = warehouses,
+                        notes = uiState.notes,
+                        onSourceClick = { showSourceSheet = true },
+                        onDestClick = { showDestSheet = true },
+                        onNotesChange = viewModel::addNote,
+                        itemCount = uiState.items.size,
+                        totalUnits = uiState.totalItems
                     )
                 }
 
-                if (selectedItems.isNotEmpty()) {
+                if (uiState.items.isNotEmpty()) {
                     stickyHeader {
                         Row(
                             modifier = Modifier
@@ -123,14 +142,14 @@ fun MoveInventoryScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Items to Move", color = TextPrimary, fontWeight = FontWeight.Bold)
-                            Text("${selectedItems.size} items", color = TextSecondary, fontSize = 12.sp)
+                            Text("${uiState.items.size} items", color = TextSecondary, fontSize = 12.sp)
                         }
                     }
 
-                    items(selectedItems) { item ->
+                    itemsIndexed(uiState.items) { index, item ->
                         MoveItemRow(
                             item = item,
-                            onRemove = { selectedItems.remove(item) }
+                            onRemove = { viewModel.removeItem(index) }
                         )
                     }
                 } else {
@@ -140,65 +159,41 @@ fun MoveInventoryScreen(
                 }
             }
 
-            if (showFromSheet) {
+            if (showSourceSheet) {
                 WarehouseSelectorSheet(
                     title = "Select Source",
                     subtitle = "Where are items moving from?",
                     iconColor = ErrorRed,
-                    onDismiss = { showFromSheet = false },
+                    warehouses = warehouses,
+                    onDismiss = { showSourceSheet = false },
                     onSelect = {
-                        sourceWarehouse = it
-                        showFromSheet = false
+                        viewModel.onSourceWarehouseChange(it)
+                        showSourceSheet = false
                     }
                 )
             }
 
-            if (showToSheet) {
+            if (showDestSheet) {
                 WarehouseSelectorSheet(
                     title = "Select Destination",
                     subtitle = "Where are items moving to?",
                     iconColor = AccentTeal,
-                    onDismiss = { showToSheet = false },
+                    warehouses = warehouses,
+                    onDismiss = { showDestSheet = false },
                     onSelect = {
-                        destWarehouse = it
-                        showToSheet = false
+                        viewModel.onDestWarehouseChange(it)
+                        showDestSheet = false
                     }
                 )
             }
 
             if (showItemSheet) {
                 ItemSelectorSheet(
+                    itemsWithStock = itemsWithStock,
                     onDismiss = { showItemSheet = false },
-                    onAddSelected = { items ->
-                        selectedItems.addAll(items)
+                    onAddItem = { item, qty ->
+                        viewModel.addItem(item, qty)
                         showItemSheet = false
-                    }
-                )
-            }
-
-            if (showConfirmDialog) {
-                AlertDialog(
-                    onDismissRequest = { showConfirmDialog = false },
-                    containerColor = SurfaceColor,
-                    title = { Text("Confirm Transfer?", color = TextPrimary) },
-                    text = {
-                        Text(
-                            "You are moving ${selectedItems.size} items from ${sourceWarehouse ?: "Source"} to ${destWarehouse ?: "Destination"}.",
-                            color = TextSecondary
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            showConfirmDialog = false
-                            onConfirmClick()
-                        }) {
-                            Text("Move", color = AccentTeal)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showConfirmDialog = false }) {
-                            Text("Cancel", color = TextSecondary)
-                        }
                     }
                 )
             }
@@ -208,8 +203,10 @@ fun MoveInventoryScreen(
 
 @Composable
 private fun MoveHeaderSection(
-    sourceWarehouse: String?,
-    destWarehouse: String?,
+    transferNumber: String,
+    sourceWarehouseId: String,
+    destWarehouseId: String,
+    warehouses: List<Warehouse>,
     notes: String,
     onSourceClick: () -> Unit,
     onDestClick: () -> Unit,
@@ -223,12 +220,21 @@ private fun MoveHeaderSection(
         colors = CardDefaults.cardColors(containerColor = SurfaceColor)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Move Details", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("Transfer Info", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Transfer Number
+            Column {
+                Text("Transfer Number", color = TextSecondary, fontSize = 12.sp)
+                Text(transferNumber, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val sourceName = warehouses.find { it.id == sourceWarehouseId }?.name ?: "Select Source Warehouse"
             SelectorRow(
                 label = "From",
-                value = sourceWarehouse ?: "Select Source Warehouse",
+                value = sourceName,
                 icon = Icons.Default.Warehouse,
                 iconColor = ErrorRed,
                 onClick = onSourceClick
@@ -252,33 +258,13 @@ private fun MoveHeaderSection(
                 HorizontalDivider(modifier = Modifier.weight(1f), color = PlaceholderColor)
             }
 
+            val destName = warehouses.find { it.id == destWarehouseId }?.name ?: "Select Destination Warehouse"
             SelectorRow(
                 label = "To",
-                value = destWarehouse ?: "Select Destination Warehouse",
+                value = destName,
                 icon = Icons.Default.Warehouse,
                 iconColor = AccentTeal,
                 onClick = onDestClick
-            )
-
-            if (sourceWarehouse != null && destWarehouse != null && sourceWarehouse == destWarehouse) {
-                Row(
-                    modifier = Modifier.padding(top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(Icons.Default.Warning, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(14.dp))
-                    Text("Source and destination cannot be the same", color = ErrorRed, fontSize = 12.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SelectorRow(
-                label = "Date",
-                value = "Jun 27, 2024",
-                icon = Icons.Default.CalendarToday,
-                iconColor = TextSecondary,
-                onClick = { }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -294,7 +280,9 @@ private fun MoveHeaderSection(
                     focusedBorderColor = AccentTeal,
                     unfocusedBorderColor = PlaceholderColor,
                     focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary
                 )
             )
 
@@ -346,9 +334,7 @@ private fun SelectorRow(
 }
 
 @Composable
-private fun MoveItemRow(item: MoveItemData, onRemove: () -> Unit) {
-    var qtyToMove by remember { mutableStateOf(TextFieldValue(item.selectedQty)) }
-
+private fun MoveItemRow(item: MoveInventoryUiState.ItemRow, onRemove: () -> Unit) {
     Card(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp),
@@ -359,40 +345,14 @@ private fun MoveItemRow(item: MoveItemData, onRemove: () -> Unit) {
                 Icon(Icons.Default.Image, contentDescription = null, tint = TextSecondary)
             }
             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("From ${item.lotRef}", color = TextSecondary, fontSize = 11.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(color = item.conditionColor.copy(alpha = 0.2f), shape = RoundedCornerShape(4.dp)) {
-                        Text(item.condition, color = item.conditionColor, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
-                    }
-                    Text("Available: ${item.available}", color = TextSecondary, fontSize = 11.sp)
+                Text(item.itemName, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                if (item.lotId.isNotEmpty()) {
+                    Text("Lot: ${item.lotId}", color = TextSecondary, fontSize = 11.sp)
                 }
+                Text("Quantity: ${item.quantity}", color = TextSecondary, fontSize = 11.sp)
             }
-            Column(horizontalAlignment = Alignment.End) {
-                OutlinedTextField(
-                    value = qtyToMove,
-                    onValueChange = { qtyToMove = it },
-                    modifier = Modifier.width(80.dp).height(64.dp).onFocusChanged {
-                        if (it.isFocused) qtyToMove = qtyToMove.copy(selection = TextRange(0, qtyToMove.text.length))
-                    },
-                    placeholder = { Text("Qty", fontSize = 14.sp) },
-                    textStyle = LocalTextStyle.current.copy(
-                        textAlign = TextAlign.Center,
-                        fontSize = 20.sp,
-                        color = TextPrimary
-                    ),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentTeal,
-                        unfocusedBorderColor = PlaceholderColor,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent
-                    )
-                )
-                IconButton(onClick = onRemove, modifier = Modifier.size(20.dp)) {
-                    Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(16.dp))
-                }
+            IconButton(onClick = onRemove, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextSecondary, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -415,7 +375,7 @@ private fun MoveEmptyState(onAddClick: () -> Unit) {
             colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Add Items", color = Color.White)
+            Text("Add Items", color = DarkBackground, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -426,6 +386,7 @@ private fun WarehouseSelectorSheet(
     title: String,
     subtitle: String,
     iconColor: Color,
+    warehouses: List<Warehouse>,
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit
 ) {
@@ -439,26 +400,27 @@ private fun WarehouseSelectorSheet(
             Text(subtitle, color = TextSecondary, fontSize = 12.sp)
             Spacer(modifier = Modifier.height(16.dp))
             
-            val warehouses = listOf("Main Warehouse", "Storage Unit 2", "Retail Location")
-            warehouses.forEach { name ->
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onSelect(name) },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
-                ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier.size(40.dp).clip(CircleShape).background(iconColor.copy(alpha = 0.15f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Warehouse, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+            LazyColumn {
+                items(warehouses) { warehouse ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onSelect(warehouse.id) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = PlaceholderColor)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier.size(40.dp).clip(CircleShape).background(iconColor.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Warehouse, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(warehouse.name, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                Text(warehouse.address ?: "No address", color = TextSecondary, fontSize = 12.sp)
+                            }
+                            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(name, color = TextPrimary, fontWeight = FontWeight.Bold)
-                            Text("Chicago, IL", color = TextSecondary, fontSize = 12.sp)
-                        }
-                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextSecondary)
                     }
                 }
             }
@@ -468,15 +430,13 @@ private fun WarehouseSelectorSheet(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelected: (List<MoveItemData>) -> Unit) {
+private fun ItemSelectorSheet(
+    itemsWithStock: List<com.palletflow.presentation.screens.move.ItemWithStock>,
+    onDismiss: () -> Unit,
+    onAddItem: (Item, Int) -> Unit
+) {
     var searchQuery by remember { mutableStateOf("") }
-    var debouncedQuery by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    
-    LaunchedEffect(searchQuery) {
-        delay(300)
-        debouncedQuery = searchQuery
-    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -502,26 +462,19 @@ private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelected: (List<MoveIt
                     focusedBorderColor = AccentTeal,
                     unfocusedBorderColor = PlaceholderColor,
                     focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
             
-            val allItems = listOf(
-                MoveItemData(name = "Nike Air Max 90", lotRef = "Lot #1042", condition = "Used", available = 5, conditionColor = WarningAmber),
-                MoveItemData(name = "Samsung Tablet", lotRef = "Lot #1041", condition = "New", available = 2, conditionColor = AccentTeal),
-                MoveItemData(name = "Bluetooth Speaker", lotRef = "Lot #1042", condition = "Used", available = 8, conditionColor = WarningAmber),
-                MoveItemData(name = "Levi's Jeans", lotRef = "Lot #1043", condition = "Used", available = 3, conditionColor = WarningAmber),
-                MoveItemData(name = "Coffee Maker", lotRef = "Lot #1040", condition = "New", available = 1, conditionColor = AccentTeal)
-            )
-            
-            val filteredItems = allItems.filter { it.name.contains(debouncedQuery, ignoreCase = true) }
-            
-            val itemQuantities = remember { mutableStateMapOf<String, TextFieldValue>() }
-
             LazyColumn(modifier = Modifier.weight(1f)) {
-                items(filteredItems) { item ->
-                    val qtyValue = itemQuantities[item.name] ?: TextFieldValue("")
+                val filtered = itemsWithStock.filter { it.item.name.contains(searchQuery, ignoreCase = true) }
+                items(filtered) { itemWithStock ->
+                    val item = itemWithStock.item
+                    var qty by remember { mutableStateOf("1") }
+                    
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         shape = RoundedCornerShape(12.dp),
@@ -533,66 +486,41 @@ private fun ItemSelectorSheet(onDismiss: () -> Unit, onAddSelected: (List<MoveIt
                             }
                             Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
                                 Text(item.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text(item.lotRef, color = TextSecondary, fontSize = 11.sp)
-                                Text("Available: ${item.available}", color = AccentTeal, fontSize = 11.sp)
+                                Text("Available: ${itemWithStock.stockQuantity}", color = AccentTeal, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                if (item.lotId != null) {
+                                    Text("Lot: ${item.lotId}", color = TextSecondary, fontSize = 11.sp)
+                                }
                             }
-                            Column(horizontalAlignment = Alignment.End) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 OutlinedTextField(
-                                    value = qtyValue,
-                                    onValueChange = { itemQuantities[item.name] = it },
-                                    modifier = Modifier.width(80.dp).height(64.dp).onFocusChanged {
-                                        if (it.isFocused) itemQuantities[item.name] = qtyValue.copy(selection = TextRange(0, qtyValue.text.length))
-                                    },
-                                    placeholder = { Text("Qty", fontSize = 14.sp) },
-                                    textStyle = LocalTextStyle.current.copy(
-                                        textAlign = TextAlign.Center,
-                                        fontSize = 20.sp,
-                                        color = TextPrimary
-                                    ),
+                                    value = qty,
+                                    onValueChange = { qty = it },
+                                    modifier = Modifier.width(60.dp).height(50.dp),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     singleLine = true,
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedBorderColor = AccentTeal,
                                         unfocusedBorderColor = SurfaceColor,
-                                        focusedContainerColor = SurfaceColor,
-                                        unfocusedContainerColor = SurfaceColor
+                                        focusedTextColor = TextPrimary,
+                                        unfocusedTextColor = TextPrimary
                                     )
                                 )
+                                Button(
+                                    onClick = { 
+                                        val q = qty.toIntOrNull() ?: 0
+                                        if (q > 0) onAddItem(item, q) 
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentTeal),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp)
+                                ) {
+                                    Text("Add", color = DarkBackground, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = PlaceholderColor)
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            val isButtonEnabled = itemQuantities.values.any { it.text.isNotEmpty() && (it.text.toIntOrNull() ?: 0) > 0 }
-            
-            Button(
-                onClick = { 
-                    val selected = filteredItems
-                        .filter { itemQuantities[it.name]?.text?.isNotEmpty() == true }
-                        .map { it.copy(selectedQty = itemQuantities[it.name]?.text ?: "") }
-                    onAddSelected(selected) 
-                },
-                enabled = isButtonEnabled,
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentTeal,
-                    disabledContainerColor = PlaceholderColor
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Add Selected", color = if (isButtonEnabled) DarkBackground else TextSecondary, fontWeight = FontWeight.Bold)
-            }
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MoveInventoryScreenPreview() {
-    MoveInventoryScreen()
 }
