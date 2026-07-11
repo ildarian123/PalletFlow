@@ -29,6 +29,7 @@ import androidx.navigation.NavHostController
 import com.palletflow.presentation.navigation.BottomNavTab
 import com.palletflow.presentation.navigation.BottomNavigationBar
 import com.palletflow.presentation.screens.inventory.InventoryScreen
+import com.palletflow.presentation.screens.reports.ReportsScreen
 import com.palletflow.presentation.screens.sales.SalesScreen
 
 private val DarkBackground = Color(0xFF121212)
@@ -193,6 +194,9 @@ fun DashboardScreenContent(
                         onAddTransferClick = onMoveInventoryClick,
                         onAddTransferClickWithId = onAddTransferClickWithId
                     )
+                }
+                BottomNavTab.Reports -> {
+                    ReportsScreen()
                 }
                 else -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

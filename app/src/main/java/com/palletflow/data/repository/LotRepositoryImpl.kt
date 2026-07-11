@@ -32,6 +32,8 @@ class LotRepositoryImpl @Inject constructor(
 
     override fun getLotItems(lotId: String): Flow<List<LotItem>> = lotItemDao.getItemsByLot(lotId)
 
+    override suspend fun getLotItemsSync(lotId: String): List<LotItem> = lotItemDao.getItemsByLotSync(lotId)
+
     override fun getLotExpenses(lotId: String): Flow<List<LotExpense>> = lotExpenseDao.getExpensesByLot(lotId)
 
     override suspend fun createLotWithItems(

@@ -25,6 +25,7 @@ interface LotRepository {
     ): Result<Lot>
 
     fun getLotItems(lotId: String): Flow<List<LotItem>>
+    suspend fun getLotItemsSync(lotId: String): List<LotItem>
     fun getLotExpenses(lotId: String): Flow<List<LotExpense>>
 
     suspend fun isLotNumberUnique(lotNumber: String): Boolean

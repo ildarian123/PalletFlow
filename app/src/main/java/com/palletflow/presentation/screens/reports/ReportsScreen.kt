@@ -2,384 +2,325 @@ package com.palletflow.presentation.screens.reports
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.palletflow.domain.usecase.report.FinancialOverview
+import com.palletflow.domain.usecase.report.LotProfitData
+import com.palletflow.domain.usecase.report.PlatformSalesData
 
-private val DarkBackground = Color(0xFF121212)
-private val SurfaceColor = Color(0xFF1E1E1E)
-private val AccentTeal = Color(0xFF00C2A0)
-private val TextPrimary = Color(0xFFF5F5F7)
-private val TextSecondary = Color(0xFFA1A1A6)
-private val PlaceholderColor = Color(0xFF2C2C2E)
-private val NegativeRed = Color(0xFFFF453A)
-private val NeutralBlue = Color(0xFF4A90E2)
-private val WarningAmber = Color(0xFFFF9500)
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReportsScreen() {
-    var selectedDateIndex by remember { mutableIntStateOf(1) } // Default "This Week"
-    var selectedTab by remember { mutableIntStateOf(0) }
+fun ReportsScreen(
+    viewModel: ReportsViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val warehouses by viewModel.warehouses.collectAsStateWithLifecycle()
     
-    val dateFilters = listOf("Today", "This Week", "This Month", "This Year", "Custom")
-    val tabs = listOf("Overview", "By Lot", "By Platform")
+    var selectedDateFilter by remember { mutableStateOf(DateFilterReport.MONTH) }
+    var selectedWarehouse by remember { mutableStateOf<String?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBackground)
-    ) {
-        // 1. Date range filter
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(dateFilters.size) { index ->
-                FilterChip(
-                    selected = selectedDateIndex == index,
-                    onClick = { selectedDateIndex = index },
-                    label = { Text(dateFilters[index]) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = AccentTeal,
-                        selectedLabelColor = DarkBackground,
-                        containerColor = PlaceholderColor,
-                        labelColor = TextSecondary
-                    ),
-                    border = null,
-                    shape = RoundedCornerShape(12.dp)
+    Scaffold(
+        containerColor = Color(0xFF121212),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        "Reports",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFF5F5F7)
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF121212)
                 )
-            }
+            )
         }
-
-        // 2. TabRow
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = DarkBackground,
-            contentColor = AccentTeal,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = AccentTeal
-                )
-            },
-            divider = {}
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            tabs.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
-                    text = {
+            // Date Filters
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                DateFilterReport.entries.filter { it != DateFilterReport.CUSTOM }.forEach { filter ->
+                    FilterChip(
+                        selected = selectedDateFilter == filter,
+                        onClick = { 
+                            selectedDateFilter = filter
+                            viewModel.onDateFilterChange(filter)
+                        },
+                        label = { Text(filter.name.lowercase().capitalize(), fontSize = 12.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF00C2A0),
+                            selectedLabelColor = Color.Black,
+                            containerColor = Color(0xFF1E1E1E),
+                            labelColor = Color(0xFFA1A1A6)
+                        ),
+                        border = null
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Warehouse filter
+            var expandedWarehouse by remember { mutableStateOf(false) }
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedCard(
+                    onClick = { expandedWarehouse = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                    border = BorderStroke(1.dp, Color(0xFF333333))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = title,
-                            color = if (selectedTab == index) AccentTeal else TextSecondary,
-                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                            selectedWarehouse?.let { id ->
+                                warehouses.find { it.id == id }?.name ?: "All Warehouses"
+                            } ?: "All Warehouses",
+                            color = Color(0xFFF5F5F7)
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFFA1A1A6))
+                    }
+                }
+                DropdownMenu(
+                    expanded = expandedWarehouse, 
+                    onDismissRequest = { expandedWarehouse = false },
+                    modifier = Modifier.background(Color(0xFF1E1E1E))
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("All Warehouses", color = Color.White) },
+                        onClick = {
+                            selectedWarehouse = null
+                            viewModel.onWarehouseChange(null)
+                            expandedWarehouse = false
+                        }
+                    )
+                    warehouses.forEach { warehouse ->
+                        DropdownMenuItem(
+                            text = { Text(warehouse.name, color = Color.White) },
+                            onClick = {
+                                selectedWarehouse = warehouse.id
+                                viewModel.onWarehouseChange(warehouse.id)
+                                expandedWarehouse = false
+                            }
                         )
                     }
-                )
-            }
-        }
-
-        // Tab Content
-        Box(modifier = Modifier.weight(1f)) {
-            when (selectedTab) {
-                0 -> OverviewTab()
-                1 -> ByLotTab()
-                2 -> ByPlatformTab()
-            }
-        }
-    }
-}
-
-@Composable
-fun OverviewTab() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 16.dp)
-    ) {
-        // Summary Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceColor)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Summary", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Spacer(modifier = Modifier.height(12.dp))
-                SummaryRow("Revenue", "+$8,500", AccentTeal)
-                SummaryRow("Lot Costs", "-$5,200", NegativeRed)
-                SummaryRow("Expenses", "-$980", NegativeRed)
-                HorizontalDivider(color = PlaceholderColor, modifier = Modifier.padding(vertical = 12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Net Profit", color = TextSecondary, fontSize = 14.sp)
-                    Text("+$2,320", color = AccentTeal, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
-        }
 
-        // Bar Chart Placeholder
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceColor)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Revenue by Day", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    val heights = listOf(0.3f, 0.5f, 0.4f, 0.8f, 0.6f, 0.9f, 0.45f)
-                    val days = listOf("M", "T", "W", "T", "F", "S", "S")
-                    heights.forEachIndexed { index, height ->
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight(height)
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                    .background(AccentTeal)
+            Spacer(Modifier.height(24.dp))
+
+            // Loading state
+            if (uiState.isLoading) {
+                Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFF00C2A0))
+                }
+            } else if (uiState.error != null) {
+                Text(uiState.error!!, color = Color(0xFFFF453A), modifier = Modifier.padding(vertical = 16.dp))
+            } else {
+                // KPI Cards
+                uiState.overview?.let { overview ->
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            KpiCard(
+                                title = "Total Incoming",
+                                value = "$${String.format("%,.0f", overview.totalIncoming)}",
+                                modifier = Modifier.weight(1f)
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(days[index], color = TextSecondary, fontSize = 10.sp)
+                            KpiCard(
+                                title = "Total Revenue",
+                                value = "$${String.format("%,.0f", overview.totalRevenue)}",
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            KpiCard(
+                                title = "Total Profit",
+                                value = "$${String.format("%,.0f", overview.totalProfit)}",
+                                color = if (overview.totalProfit >= 0) Color(0xFF00C2A0) else Color(0xFFFF453A),
+                                modifier = Modifier.weight(1f)
+                            )
+                            KpiCard(
+                                title = "Profit Margin",
+                                value = "${String.format("%.1f", overview.profitMargin)}%",
+                                color = if (overview.profitMargin >= 0) Color(0xFF00C2A0) else Color(0xFFFF453A),
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
+
+                    Spacer(Modifier.height(24.dp))
                 }
-            }
-        }
 
-        // Top Selling Items Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceColor)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Top Selling Items", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Spacer(modifier = Modifier.height(12.dp))
-                val topItems = listOf(
-                    "Nike Air Max 270" to ("+$1,200" to "x12"),
-                    "Samsung Galaxy S21" to ("+$950" to "x3"),
-                    "Mechanical Keyboard" to ("+$480" to "x8"),
-                    "Wireless Headphones" to ("+$320" to "x10")
-                )
-                topItems.forEachIndexed { index, item ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("${index + 1}.", color = TextSecondary, modifier = Modifier.width(24.dp))
-                        Text(item.first, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(item.second.first, color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(item.second.second, color = TextSecondary, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ByLotTab() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MetricCard(Modifier.weight(1f), "Total Lots", "8", TextPrimary)
-            MetricCard(Modifier.weight(1f), "Avg Profit/Lot", "+$290", AccentTeal)
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        val lots = listOf(
-            LotData("#1042", "Amazon Returns", "Jun 15", "+$520", "42%", "Profitable", AccentTeal),
-            LotData("#1041", "BULQ", "Jun 10", "+$180", "22%", "Profitable", AccentTeal),
-            LotData("#1040", "Direct Liquidation", "Jun 5", "-$80", "-12%", "Loss", NegativeRed),
-            LotData("#1039", "B-Stock", "May 28", "+$340", "35%", "Profitable", AccentTeal),
-            LotData("#1038", "Amazon Returns", "May 20", "+$0", "0%", "Break Even", WarningAmber)
-        )
-        
-        lots.forEach { lot ->
-            LotProfitabilityCard(lot)
-        }
-    }
-}
-
-@Composable
-fun ByPlatformTab() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
-    ) {
-        val platforms = listOf(
-            PlatformData("eBay", "42 items sold", "+$4,200", "49%", "E"),
-            PlatformData("Facebook Marketplace", "28 items sold", "+$2,800", "33%", "F"),
-            PlatformData("Cash", "12 items sold", "+$960", "11%", "C"),
-            PlatformData("Bin Store", "8 items sold", "+$540", "6%", "B"),
-            PlatformData("Other", "2 items sold", "+$0", "1%", "O")
-        )
-        
-        platforms.forEach { platform ->
-            PlatformBreakdownCard(platform)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceColor)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "Sales Distribution",
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(200.dp)) {
-                    Canvas(modifier = Modifier.size(200.dp)) {
-                        val stroke = 40.dp.toPx()
-                        drawArc(Color(0xFF00C2A0), -90f, 176f, false, style = Stroke(stroke))
-                        drawArc(Color(0xFF4A90E2), 86f, 118f, false, style = Stroke(stroke))
-                        drawArc(Color(0xFFFF9500), 204f, 40f, false, style = Stroke(stroke))
-                        drawArc(Color(0xFFFF453A), 244f, 22f, false, style = Stroke(stroke))
-                        drawArc(Color(0xFF2C2C2E), 266f, 4f, false, style = Stroke(stroke))
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Total", color = TextSecondary, fontSize = 12.sp)
-                        Text("+$8,500", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                // TabRow
+                TabRow(
+                    selectedTabIndex = uiState.selectedTab,
+                    containerColor = Color(0xFF121212),
+                    contentColor = Color(0xFF00C2A0),
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[uiState.selectedTab]),
+                            color = Color(0xFF00C2A0)
+                        )
+                    },
+                    divider = {}
                 ) {
-                    LegendItem(AccentTeal, "eBay")
-                    LegendItem(NeutralBlue, "Facebook")
-                    LegendItem(WarningAmber, "Cash")
-                    LegendItem(NegativeRed, "Bin Store")
-                    LegendItem(PlaceholderColor, "Other")
+                    Tab(
+                        selected = uiState.selectedTab == 0,
+                        onClick = { viewModel.onTabChange(0) },
+                        text = { Text("Overview", fontSize = 14.sp) }
+                    )
+                    Tab(
+                        selected = uiState.selectedTab == 1,
+                        onClick = { viewModel.onTabChange(1) },
+                        text = { Text("By Lot", fontSize = 14.sp) }
+                    )
+                    Tab(
+                        selected = uiState.selectedTab == 2,
+                        onClick = { viewModel.onTabChange(2) },
+                        text = { Text("By Platform", fontSize = 14.sp) }
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Tab Content
+                when (uiState.selectedTab) {
+                    0 -> OverviewTab(uiState.overview)
+                    1 -> LotTab(uiState.lotProfits)
+                    2 -> PlatformTab(uiState.platformSales)
                 }
             }
+            
+            Spacer(Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
-fun SummaryRow(label: String, value: String, color: Color) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, color = TextSecondary, fontSize = 14.sp)
-        Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-    }
-}
-
-@Composable
-fun MetricCard(modifier: Modifier, label: String, value: String, valueColor: Color) {
+private fun KpiCard(
+    title: String,
+    value: String,
+    color: Color = Color.White,
+    modifier: Modifier = Modifier
+) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceColor)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(label, color = TextSecondary, fontSize = 12.sp)
-            Text(value, color = valueColor, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Column(Modifier.padding(16.dp)) {
+            Text(title, color = Color(0xFFA1A1A6), fontSize = 12.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 20.sp)
         }
     }
 }
 
-data class LotData(val id: String, val supplier: String, val date: String, val profit: String, val roi: String, val status: String, val color: Color)
+@Composable
+private fun OverviewTab(overview: FinancialOverview?) {
+    if (overview == null) {
+        Text("No data available", color = Color(0xFFA1A1A6))
+        return
+    }
+    
+    // Placeholder for chart as per instructions
+    Card(
+        modifier = Modifier.fillMaxWidth().height(220.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Profit Trend Chart", color = Color(0xFFA1A1A6), fontWeight = FontWeight.Medium)
+                Text("(Coming Soon)", color = Color(0xFF666666), fontSize = 12.sp)
+            }
+        }
+    }
+}
 
 @Composable
-fun LotProfitabilityCard(lot: LotData) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceColor)
-    ) {
+private fun LotTab(lotProfits: List<LotProfitData>) {
+    if (lotProfits.isEmpty()) {
+        Text("No lots in this period", color = Color(0xFFA1A1A6), modifier = Modifier.padding(16.dp))
+        return
+    }
+
+    var sortBy by remember { mutableStateOf("date") }
+    var ascending by remember { mutableStateOf(false) }
+
+    val sortedLots = remember(lotProfits, sortBy, ascending) {
+        when (sortBy) {
+            "lot" -> if (ascending) lotProfits.sortedBy { it.lotNumber } else lotProfits.sortedByDescending { it.lotNumber }
+            "cost" -> if (ascending) lotProfits.sortedBy { it.cost } else lotProfits.sortedByDescending { it.cost }
+            "revenue" -> if (ascending) lotProfits.sortedBy { it.revenue } else lotProfits.sortedByDescending { it.revenue }
+            "profit" -> if (ascending) lotProfits.sortedBy { it.profit } else lotProfits.sortedByDescending { it.profit }
+            "roi" -> if (ascending) lotProfits.sortedBy { it.roi } else lotProfits.sortedByDescending { it.roi }
+            else -> if (ascending) lotProfits.sortedBy { it.date } else lotProfits.sortedByDescending { it.date }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Header
         Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Lot ${lot.id}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text(lot.supplier, color = TextSecondary, fontSize = 12.sp)
-                Text(lot.date, color = TextSecondary, fontSize = 12.sp)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(lot.profit, color = if(lot.profit.startsWith("+")) AccentTeal else NegativeRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text("ROI: ${lot.roi}", color = TextSecondary, fontSize = 12.sp)
-                Surface(
-                    color = lot.color.copy(alpha = 0.15f),
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.padding(top = 4.dp)
+            HeaderItem("Lot", Modifier.weight(1.2f), sortBy == "lot") { sortBy = "lot"; ascending = !ascending }
+            HeaderItem("Cost", Modifier.weight(0.9f), sortBy == "cost") { sortBy = "cost"; ascending = !ascending }
+            HeaderItem("Rev", Modifier.weight(0.9f), sortBy == "revenue") { sortBy = "revenue"; ascending = !ascending }
+            HeaderItem("Profit", Modifier.weight(0.9f), sortBy == "profit") { sortBy = "profit"; ascending = !ascending }
+            HeaderItem("ROI", Modifier.weight(0.7f), sortBy == "roi") { sortBy = "roi"; ascending = !ascending }
+        }
+
+        // Rows
+        sortedLots.forEach { lot ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(lot.lotNumber, color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1.2f))
+                    Text("$${String.format("%.0f", lot.cost)}", color = Color(0xFFA1A1A6), fontSize = 12.sp, modifier = Modifier.weight(0.9f))
+                    Text("$${String.format("%.0f", lot.revenue)}", color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(0.9f))
                     Text(
-                        lot.status,
-                        color = lot.color,
-                        fontSize = 10.sp,
+                        "$${String.format("%.0f", lot.profit)}",
+                        color = if (lot.profit >= 0) Color(0xFF00C2A0) else Color(0xFFFF453A),
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        modifier = Modifier.weight(0.9f)
+                    )
+                    Text(
+                        "${String.format("%.0f", lot.roi)}%",
+                        color = if (lot.roi >= 0) Color(0xFF00C2A0) else Color(0xFFFF453A),
+                        fontSize = 12.sp,
+                        modifier = Modifier.weight(0.7f)
                     )
                 }
             }
@@ -387,65 +328,82 @@ fun LotProfitabilityCard(lot: LotData) {
     }
 }
 
-data class PlatformData(val name: String, val sold: String, val revenue: String, val percentage: String, val initial: String)
-
 @Composable
-fun PlatformBreakdownCard(platform: PlatformData) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceColor)
-    ) {
+private fun PlatformTab(platformSales: List<PlatformSalesData>) {
+    if (platformSales.isEmpty()) {
+        Text("No sales in this period", color = Color(0xFFA1A1A6), modifier = Modifier.padding(16.dp))
+        return
+    }
+
+    var sortBy by remember { mutableStateOf("rev") }
+    var ascending by remember { mutableStateOf(false) }
+
+    val sortedPlatforms = remember(platformSales, sortBy, ascending) {
+        when (sortBy) {
+            "platform" -> if (ascending) platformSales.sortedBy { it.platform } else platformSales.sortedByDescending { it.platform }
+            "sales" -> if (ascending) platformSales.sortedBy { it.salesCount } else platformSales.sortedByDescending { it.salesCount }
+            "rev" -> if (ascending) platformSales.sortedBy { it.revenue } else platformSales.sortedByDescending { it.revenue }
+            "avg" -> if (ascending) platformSales.sortedBy { it.avgPrice } else platformSales.sortedByDescending { it.avgPrice }
+            "profit" -> if (ascending) platformSales.sortedBy { it.profit } else platformSales.sortedByDescending { it.profit }
+            else -> platformSales
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Header
         Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(PlaceholderColor),
-                contentAlignment = Alignment.Center
+            HeaderItem("Platform", Modifier.weight(1.2f), sortBy == "platform") { sortBy = "platform"; ascending = !ascending }
+            HeaderItem("Sales", Modifier.weight(0.7f), sortBy == "sales") { sortBy = "sales"; ascending = !ascending }
+            HeaderItem("Rev", Modifier.weight(0.9f), sortBy == "rev") { sortBy = "rev"; ascending = !ascending }
+            HeaderItem("Avg", Modifier.weight(0.9f), sortBy == "avg") { sortBy = "avg"; ascending = !ascending }
+            HeaderItem("Profit", Modifier.weight(0.9f), sortBy == "profit") { sortBy = "profit"; ascending = !ascending }
+        }
+
+        // Rows
+        sortedPlatforms.forEach { platform ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text(platform.initial, color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-            Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(platform.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text(platform.sold, color = TextSecondary, fontSize = 12.sp)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text(platform.revenue, color = AccentTeal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(platform.percentage, color = TextSecondary, fontSize = 12.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(platform.platform, color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1.2f))
+                    Text(platform.salesCount.toString(), color = Color(0xFFA1A1A6), fontSize = 12.sp, modifier = Modifier.weight(0.7f))
+                    Text("$${String.format("%.0f", platform.revenue)}", color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(0.9f))
+                    Text("$${String.format("%.0f", platform.avgPrice)}", color = Color(0xFFA1A1A6), fontSize = 12.sp, modifier = Modifier.weight(0.9f))
+                    Text(
+                        "$${String.format("%.0f", platform.profit)}",
+                        color = if (platform.profit >= 0) Color(0xFF00C2A0) else Color(0xFFFF453A),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(0.9f)
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun LegendItem(color: Color, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(label, color = TextSecondary, fontSize = 11.sp)
-    }
+private fun HeaderItem(
+    label: String,
+    modifier: Modifier = Modifier,
+    isSelected: Boolean = false,
+    onClick: () -> Unit
+) {
+    Text(
+        text = label + if (isSelected) " ↓" else "",
+        color = if (isSelected) Color(0xFF00C2A0) else Color(0xFFA1A1A6),
+        fontSize = 11.sp,
+        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+        modifier = modifier.clickable { onClick() }
+    )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun LegendFlow(content: @Composable () -> Unit) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        content()
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ReportsScreenPreview() {
-    ReportsScreen()
-}
+fun String.capitalize() = replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
