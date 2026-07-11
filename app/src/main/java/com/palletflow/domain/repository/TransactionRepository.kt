@@ -17,6 +17,8 @@ interface TransactionRepository {
     suspend fun createTransaction(transaction: Transaction): Result<Transaction>
     suspend fun updateTransaction(transaction: Transaction): Result<Transaction>
     suspend fun deleteTransaction(id: String, userId: String): Result<Unit>
+    suspend fun deleteSale(id: String, userId: String): Result<Unit>
+    suspend fun deleteTransfer(id: String, userId: String): Result<Unit>
     
     // New methods for sale details
     suspend fun getSaleItems(transactionId: String): List<com.palletflow.data.local.entity.SaleItem>

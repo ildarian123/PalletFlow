@@ -1,7 +1,10 @@
 package com.palletflow.data.repository
 
 import android.util.Log
+import androidx.room.withTransaction
 import com.palletflow.data.local.dao.TransactionDao
+import com.palletflow.data.local.dao.StockDao
+import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.Transaction
 import com.palletflow.data.local.entity.TransactionType
 import com.palletflow.domain.repository.TransactionRepository
@@ -11,7 +14,9 @@ import javax.inject.Singleton
 
 @Singleton
 class TransactionRepositoryImpl @Inject constructor(
+    private val database: AppDatabase,
     private val transactionDao: TransactionDao,
+    private val stockDao: StockDao,
     private val saleItemDao: com.palletflow.data.local.dao.SaleItemDao,
     private val saleExpenseDao: com.palletflow.data.local.dao.SaleExpenseDao
 ) : TransactionRepository {
@@ -61,6 +66,61 @@ class TransactionRepositoryImpl @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("TransactionRepository", "Failed to delete transaction", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteSale(id: String, userId: String): Result<Unit> {
+        Log.d("TransactionRepository", "deleteSale started for sale: $id")
+        return try {
+            database.withTransaction {
+                val transaction = transactionDao.getTransactionById(id, userId)
+                    ?: throw Exception("Sale not found")
+                
+                val warehouseId = transaction.warehouseFromId
+                if (warehouseId != null) {
+                    val items = saleItemDao.getItemsByTransactionId(id)
+                    items.forEach { item ->
+                        stockDao.incrementQuantity(userId, item.itemId, warehouseId, item.quantity)
+                    }
+                }
+                
+                saleItemDao.deleteItemsByTransactionId(id)
+                saleExpenseDao.deleteExpensesByTransactionId(id)
+                transactionDao.deleteTransactionById(id, userId)
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("TransactionRepository", "Failed to delete sale", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteTransfer(id: String, userId: String): Result<Unit> {
+        Log.d("TransactionRepository", "deleteTransfer started for transfer: $id")
+        return try {
+            database.withTransaction {
+                val transaction = transactionDao.getTransactionById(id, userId)
+                    ?: throw Exception("Transfer not found")
+                
+                val sourceId = transaction.warehouseFromId
+                val destId = transaction.warehouseToId
+                
+                if (sourceId != null && destId != null) {
+                    val items = saleItemDao.getItemsByTransactionId(id)
+                    items.forEach { item ->
+                        // Revert: add back to source, remove from destination
+                        stockDao.incrementQuantity(userId, item.itemId, sourceId, item.quantity)
+                        stockDao.decrementQuantity(userId, item.itemId, destId, item.quantity)
+                    }
+                }
+                
+                saleItemDao.deleteItemsByTransactionId(id)
+                transactionDao.deleteTransactionById(id, userId)
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("TransactionRepository", "Failed to delete transfer", e)
             Result.failure(e)
         }
     }
