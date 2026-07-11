@@ -29,7 +29,7 @@ interface StockDao {
 
     @Query("""
         UPDATE stocks 
-        SET quantity = quantity + :quantity, updatedAt = :updatedAt
+        SET quantity = MAX(0, quantity + :quantity), updatedAt = :updatedAt
         WHERE userId = :userId AND itemId = :itemId AND warehouseId = :warehouseId
     """)
     suspend fun incrementQuantity(
@@ -42,7 +42,7 @@ interface StockDao {
 
     @Query("""
         UPDATE stocks 
-        SET quantity = quantity - :quantity, updatedAt = :updatedAt
+        SET quantity = MAX(0, quantity - :quantity), updatedAt = :updatedAt
         WHERE userId = :userId AND itemId = :itemId AND warehouseId = :warehouseId
     """)
     suspend fun decrementQuantity(

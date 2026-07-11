@@ -48,7 +48,8 @@ class StockRepositoryImpl @Inject constructor(
 
     override suspend fun createStock(stock: Stock): Result<Unit> {
         return try {
-            stockDao.insertStock(stock)
+            val sanitizedStock = if (stock.quantity < 0) stock.copy(quantity = 0) else stock
+            stockDao.insertStock(sanitizedStock)
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("StockRepository", "Failed to create stock", e)

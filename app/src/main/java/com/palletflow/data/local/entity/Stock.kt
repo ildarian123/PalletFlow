@@ -21,8 +21,4 @@ data class Stock(
     val warehouseId: String,
     val quantity: Int = 0,
     val updatedAt: Long = System.currentTimeMillis()
-) {
-    init {
-        require(quantity >= 0) { "Quantity cannot be negative" }
-    }
-}
+)
