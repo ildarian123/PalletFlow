@@ -170,7 +170,16 @@ fun DashboardScreenContent(
                         onSellItemClick = onSellItemClick,
                         onMoveInventoryClick = onMoveInventoryClick,
                         onSeeAllActivityClick = onSeeAllActivityClick,
-                        onReportsClick = { onTabSelected(BottomNavTab.Reports) }
+                        onReportsClick = { onTabSelected(BottomNavTab.Reports) },
+                        onActivityClick = { activity ->
+                            when (activity.type) {
+                                com.palletflow.data.local.entity.TransactionType.SALE -> onAddSaleClickWithId(activity.id)
+                                com.palletflow.data.local.entity.TransactionType.TRANSFER -> onAddTransferClickWithId(activity.id)
+                                com.palletflow.data.local.entity.TransactionType.INCOMING -> {
+                                    activity.lotId?.let { onEditLotClick(it) }
+                                }
+                            }
+                        }
                     )
                 }
                 BottomNavTab.Inventory -> {
@@ -210,7 +219,8 @@ fun DashboardContent(
     onSellItemClick: () -> Unit,
     onMoveInventoryClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
-    onReportsClick: () -> Unit
+    onReportsClick: () -> Unit,
+    onActivityClick: (RecentActivityUiState) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -236,7 +246,8 @@ fun DashboardContent(
         // Recent Activity
         RecentActivitySection(
             activities = uiState.recentActivities,
-            onSeeAllClick = onSeeAllActivityClick
+            onSeeAllClick = onSeeAllActivityClick,
+            onActivityClick = onActivityClick
         )
         
         Spacer(modifier = Modifier.height(24.dp))
@@ -378,7 +389,8 @@ fun MetricCard(data: MetricData, onClick: () -> Unit) {
 @Composable
 fun RecentActivitySection(
     activities: List<RecentActivityUiState>,
-    onSeeAllClick: () -> Unit
+    onSeeAllClick: () -> Unit,
+    onActivityClick: (RecentActivityUiState) -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Row(
@@ -417,7 +429,8 @@ fun RecentActivitySection(
                     detailColor = when (activity.detailColorType) {
                         ActivityDetailColorType.SUCCESS -> SuccessGreen
                         ActivityDetailColorType.NORMAL -> TextPrimary
-                    }
+                    },
+                    onClick = { onActivityClick(activity) }
                 )
             }
         }
@@ -425,11 +438,12 @@ fun RecentActivitySection(
 }
 
 @Composable
-fun ActivityItem(title: String, detail: String, detailColor: Color) {
+fun ActivityItem(title: String, detail: String, detailColor: Color, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp),
+            .padding(bottom = 12.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceColor)
     ) {
@@ -469,14 +483,19 @@ fun DashboardPreview() {
             itemsSold = "48",
             recentActivities = listOf(
                 RecentActivityUiState(
+                    id = "1",
+                    type = com.palletflow.data.local.entity.TransactionType.SALE,
                     title = "Sold Samsung Tablet",
                     detail = "+$120.00",
                     detailColorType = ActivityDetailColorType.SUCCESS
                 ),
                 RecentActivityUiState(
+                    id = "2",
+                    type = com.palletflow.data.local.entity.TransactionType.INCOMING,
                     title = "Received #1043",
                     detail = "-$850.00",
-                    detailColorType = ActivityDetailColorType.NORMAL
+                    detailColorType = ActivityDetailColorType.NORMAL,
+                    lotId = "lot1"
                 )
             )
         ),
@@ -484,6 +503,7 @@ fun DashboardPreview() {
         onSellItemClick = {},
         onMoveInventoryClick = {},
         onSeeAllActivityClick = {},
-        onReportsClick = {}
+        onReportsClick = {},
+        onActivityClick = { _ -> }
     )
 }

@@ -54,11 +54,18 @@ class DashboardViewModel @Inject constructor(
         // 2. Observe Recent Activities (Transactions) - Real-time updates
         transactionRepository.getAllTransactions(userId).map { transactions ->
             transactions.sortedByDescending { it.createdAt }.take(10).map { tx ->
-                val sign = if (tx.type == TransactionType.SALE) "+" else "-"
+                val sign = when (tx.type) {
+                    TransactionType.SALE -> "+"
+                    TransactionType.INCOMING -> "-"
+                    TransactionType.TRANSFER -> ""
+                }
                 RecentActivityUiState(
+                    id = tx.id,
+                    type = tx.type,
                     title = tx.notes ?: "${tx.type.name} Transaction",
                     detail = String.format("%s$%,.2f", sign, tx.amount),
-                    detailColorType = if (tx.type == TransactionType.SALE) ActivityDetailColorType.SUCCESS else ActivityDetailColorType.NORMAL
+                    detailColorType = if (tx.type == TransactionType.SALE) ActivityDetailColorType.SUCCESS else ActivityDetailColorType.NORMAL,
+                    lotId = tx.lotId
                 )
             }
         }.onEach { activities ->
@@ -91,9 +98,12 @@ data class DashboardUiState(
 )
 
 data class RecentActivityUiState(
+    val id: String,
+    val type: TransactionType,
     val title: String,
     val detail: String,
-    val detailColorType: ActivityDetailColorType
+    val detailColorType: ActivityDetailColorType,
+    val lotId: String? = null
 )
 
 enum class ActivityDetailColorType {

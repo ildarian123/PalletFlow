@@ -13,8 +13,7 @@ enum class BottomNavTab(val route: String, val title: String, val icon: ImageVec
     Dashboard(Screen.Dashboard.route, "Dashboard", Icons.Default.Dashboard),
     Inventory(Screen.Inventory.route, "Inventory", Icons.Default.Inventory),
     Transactions(Screen.Transactions.route, "Activity", Icons.Default.Receipt),
-    Reports(Screen.Reports.route, "Reports", Icons.Default.BarChart),
-    More(Screen.Settings.route, "More", Icons.Default.MoreHoriz)
+    Reports(Screen.Reports.route, "Reports", Icons.Default.BarChart)
 }
 
 @Composable
