@@ -82,7 +82,8 @@ class SellViewModel @Inject constructor(
                                     itemName = "Loading...", // Will update once availableItems load
                                     lotId = saleItem.lotId,
                                     quantity = saleItem.quantity,
-                                    sellingPrice = saleItem.sellingPrice
+                                    sellingPrice = saleItem.sellingPrice,
+                                    photoPath = null
                                 )
                             },
                             expenses = details.expenses.map { expense ->
@@ -99,7 +100,10 @@ class SellViewModel @Inject constructor(
                                 state.copy(
                                     items = state.items.map { row ->
                                         val item = items.find { it.id == row.itemId }
-                                        row.copy(itemName = item?.name ?: "Unknown Item")
+                                        row.copy(
+                                            itemName = item?.name ?: "Unknown Item",
+                                            photoPath = item?.photoPath
+                                        )
                                     }
                                 )
                             }
@@ -156,7 +160,8 @@ class SellViewModel @Inject constructor(
                 itemName = item.name,
                 lotId = lotId,
                 quantity = quantity,
-                sellingPrice = 0.0  // User will enter this
+                sellingPrice = 0.0,  // User will enter this
+                photoPath = item.photoPath
             )
 
             _uiState.update { state ->
@@ -314,7 +319,8 @@ data class SellUiState(
         val itemName: String,
         val lotId: String,
         val quantity: Int,
-        val sellingPrice: Double
+        val sellingPrice: Double,
+        val photoPath: String? = null
     )
 
     data class ExpenseRow(
