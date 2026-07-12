@@ -30,4 +30,5 @@ interface LotRepository {
 
     suspend fun isLotNumberUnique(lotNumber: String): Boolean
     suspend fun deleteLot(lotId: String, userId: String): Result<Unit>
+    suspend fun getLotIdForItem(itemId: String): String?
 }

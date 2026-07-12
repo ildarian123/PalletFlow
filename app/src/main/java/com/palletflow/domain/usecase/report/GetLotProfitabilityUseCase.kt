@@ -23,8 +23,12 @@ class GetLotProfitabilityUseCase @Inject constructor(
 
         return try {
             val lots = lotRepository.getAllLots().first().filter { it.userId == userId }
-            val transactions = transactionRepository.getTransactionsByDateRange(userId, startDate, endDate).first()
-            val allSaleItems = transactionRepository.getAllSaleItems()
+            
+            // Get all incoming transactions to get the REAL cost of each lot
+            val incomingTransactions = transactionRepository.getTransactionsByType(userId, TransactionType.INCOMING).first()
+            
+            // Get sale items for the selected period
+            val saleItemsInRange = transactionRepository.getSaleItemsByDateRange(userId, startDate, endDate)
             
             val filteredLots = if (warehouseId != null) {
                 lots.filter { it.warehouseId == warehouseId }
@@ -33,10 +37,10 @@ class GetLotProfitabilityUseCase @Inject constructor(
             }
 
             val lotProfits = filteredLots.map { lot ->
-                val incomingTransaction = transactions.find { it.lotId == lot.id && it.type == TransactionType.INCOMING }
-                val salesForLot = allSaleItems.filter { it.lotId == lot.id }
+                val incomingTransaction = incomingTransactions.find { it.lotId == lot.id }
+                val salesForLot = saleItemsInRange.filter { it.lotId == lot.id }
                 
-                val cost = incomingTransaction?.amount ?: 0.0
+                val cost = incomingTransaction?.amount ?: lot.purchasePrice
                 val revenue = salesForLot.sumOf { it.sellingPrice * it.quantity }
                 val profit = revenue - cost
                 val roi = if (cost > 0) (profit / cost * 100) else 0.0

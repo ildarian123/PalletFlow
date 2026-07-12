@@ -126,7 +126,7 @@ data class ReportsUiState(
     val overview: FinancialOverview? = null,
     val lotProfits: List<LotProfitData> = emptyList(),
     val platformSales: List<PlatformSalesData> = emptyList(),
-    val selectedTab: Int = 0,
+    val selectedTab: Int = 1,
     val isLoading: Boolean = false,
     val error: String? = null
 )

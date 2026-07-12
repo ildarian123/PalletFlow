@@ -23,4 +23,7 @@ interface LotItemDao {
 
     @Query("DELETE FROM lot_items WHERE lotId = :lotId")
     suspend fun deleteItemsByLot(lotId: String)
+
+    @Query("SELECT lotId FROM lot_items WHERE itemId = :itemId LIMIT 1")
+    suspend fun getLotIdForItem(itemId: String): String?
 }

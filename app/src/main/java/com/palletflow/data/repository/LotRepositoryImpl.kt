@@ -264,4 +264,7 @@ class LotRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun getLotIdForItem(itemId: String): String? = 
+        lotItemDao.getLotIdForItem(itemId)
 }

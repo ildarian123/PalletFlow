@@ -23,4 +23,14 @@ interface SaleItemDao {
 
     @Query("SELECT * FROM sale_items")
     fun getAllSaleItemsFlow(): Flow<List<SaleItem>>
+
+    @Query("""
+        SELECT si.* FROM sale_items si
+        INNER JOIN transactions t ON si.transactionId = t.id
+        WHERE t.userId = :userId 
+        AND t.type = 'SALE'
+        AND t.createdAt >= :startDate 
+        AND t.createdAt <= :endDate
+    """)
+    suspend fun getSaleItemsByDateRange(userId: String, startDate: Long, endDate: Long): List<SaleItem>
 }

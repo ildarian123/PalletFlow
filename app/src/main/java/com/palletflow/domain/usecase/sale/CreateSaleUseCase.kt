@@ -5,6 +5,7 @@ import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.local.dao.SaleExpenseDao
 import com.palletflow.data.local.dao.SaleItemDao
 import com.palletflow.data.local.entity.*
+import com.palletflow.domain.repository.LotRepository
 import com.palletflow.domain.repository.StockRepository
 import com.palletflow.domain.repository.TransactionRepository
 import javax.inject.Inject
@@ -12,6 +13,7 @@ import javax.inject.Inject
 class CreateSaleUseCase @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val stockRepository: StockRepository,
+    private val lotRepository: LotRepository,
     private val saleItemDao: SaleItemDao,
     private val saleExpenseDao: SaleExpenseDao,
     private val authPreferences: AuthPreferences
@@ -43,12 +45,22 @@ class CreateSaleUseCase @Inject constructor(
 
         // Handle Update vs Create
         return try {
+            // Ensure lotId is populated if missing
+            val processedItems = items.map { item ->
+                if (item.lotId.isBlank()) {
+                    val lotIdFromDb = lotRepository.getLotIdForItem(item.itemId)
+                    item.copy(lotId = lotIdFromDb ?: "")
+                } else {
+                    item
+                }
+            }
+
             if (saleId != null) {
                 // UPDATE FLOW
                 val oldItems = saleItemDao.getItemsByTransactionId(saleId)
                 
                 // Check if we have enough stock for new items, considering old items will be returned to stock
-                for (item in items) {
+                for (item in processedItems) {
                     val oldItem = oldItems.find { it.itemId == item.itemId }
                     val oldQty = oldItem?.quantity ?: 0
                     val currentStock = stockRepository.getStock(userId, item.itemId, warehouseId)?.quantity ?: 0
@@ -65,7 +77,7 @@ class CreateSaleUseCase @Inject constructor(
                 }
 
                 // 2. Apply new stock impact
-                items.forEach { newItem ->
+                processedItems.forEach { newItem ->
                     stockRepository.decrementQuantity(userId, newItem.itemId, warehouseId, newItem.quantity)
                 }
 
@@ -77,16 +89,16 @@ class CreateSaleUseCase @Inject constructor(
                     documentNumber = saleNumber,
                     platform = platform,
                     warehouseFromId = warehouseId,
-                    amount = items.sumOf { it.sellingPrice * it.quantity } + expenses.sumOf { it.amount },
-                    quantity = items.sumOf { it.quantity },
+                    amount = processedItems.sumOf { it.sellingPrice * it.quantity } + expenses.sumOf { it.amount },
+                    quantity = processedItems.sumOf { it.quantity },
                     updatedAt = System.currentTimeMillis(),
-                    notes = "Sale ${items.size} item(s) on $platform"
+                    notes = "Sale ${processedItems.size} item(s) on $platform"
                 )
                 transactionRepository.updateTransaction(updatedTransaction)
 
                 // 4. Update items and expenses (Delete old, insert new)
                 saleItemDao.deleteItemsByTransactionId(saleId)
-                items.forEach { item ->
+                processedItems.forEach { item ->
                     saleItemDao.insertSaleItem(
                         SaleItem(
                             transactionId = saleId,
@@ -112,7 +124,7 @@ class CreateSaleUseCase @Inject constructor(
                 Result.success(updatedTransaction)
             } else {
                 // CREATE FLOW
-                for (item in items) {
+                for (item in processedItems) {
                     val stock = stockRepository.getStock(userId, item.itemId, warehouseId)
                     if (stock == null || stock.quantity < item.quantity) {
                         return Result.failure(Exception("Not enough ${item.itemName} in warehouse (available: ${stock?.quantity ?: 0})"))
@@ -123,7 +135,7 @@ class CreateSaleUseCase @Inject constructor(
                 var totalQuantity = 0
 
                 // Decrement stock for each item
-                for (item in items) {
+                for (item in processedItems) {
                     stockRepository.decrementQuantity(userId, item.itemId, warehouseId, item.quantity)
                     totalAmount += item.sellingPrice * item.quantity
                     totalQuantity += item.quantity
@@ -135,19 +147,19 @@ class CreateSaleUseCase @Inject constructor(
                     userId = userId,
                     type = TransactionType.SALE,
                     status = TransactionStatus.COMPLETED,
-                    itemId = items.firstOrNull()?.itemId,
-                    lotId = items.firstOrNull()?.lotId,
+                    itemId = processedItems.firstOrNull()?.itemId,
+                    lotId = processedItems.firstOrNull()?.lotId,
                     quantity = totalQuantity,
                     amount = totalAmount + expenses.sumOf { it.amount },
                     platform = platform,
                     warehouseFromId = warehouseId,
                     documentNumber = saleNumber,
-                    notes = "Sale ${items.size} item(s) on $platform"
+                    notes = "Sale ${processedItems.size} item(s) on $platform"
                 )
 
                 transactionRepository.createTransaction(transaction)
 
-                items.forEach { item ->
+                processedItems.forEach { item ->
                     saleItemDao.insertSaleItem(
                         SaleItem(
                             transactionId = transactionId,

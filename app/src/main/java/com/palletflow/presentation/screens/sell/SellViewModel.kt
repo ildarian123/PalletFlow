@@ -23,6 +23,7 @@ class SellViewModel @Inject constructor(
     private val getAllItemsUseCase: GetAllItemsUseCase,
     private val getAllWarehousesUseCase: GetAllWarehousesUseCase,
     private val getSaleDetailsUseCase: GetSaleDetailsUseCase,
+    private val lotRepository: com.palletflow.domain.repository.LotRepository,
     private val stockRepository: com.palletflow.domain.repository.StockRepository,
     private val authPreferences: AuthPreferences,
     savedStateHandle: SavedStateHandle
@@ -147,32 +148,36 @@ class SellViewModel @Inject constructor(
             return
         }
 
-        val newItem = SellUiState.ItemRow(
-            itemId = item.id,
-            itemName = item.name,
-            lotId = item.lotId ?: "",
-            quantity = quantity,
-            sellingPrice = 0.0  // User will enter this
-        )
-
-        _uiState.update { state ->
-            // If item already exists in the list, update its quantity
-            val existingIndex = state.items.indexOfFirst { row -> row.itemId == item.id }
-            val updatedItems = if (existingIndex != -1) {
-                state.items.toMutableList().apply {
-                    val existingItem = this[existingIndex]
-                    this[existingIndex] = existingItem.copy(
-                        quantity = existingItem.quantity + quantity
-                    )
-                }
-            } else {
-                state.items + newItem
-            }
+        viewModelScope.launch {
+            val lotId = item.lotId ?: lotRepository.getLotIdForItem(item.id) ?: ""
             
-            state.copy(
-                items = updatedItems,
-                itemError = null
+            val newItem = SellUiState.ItemRow(
+                itemId = item.id,
+                itemName = item.name,
+                lotId = lotId,
+                quantity = quantity,
+                sellingPrice = 0.0  // User will enter this
             )
+
+            _uiState.update { state ->
+                // If item already exists in the list, update its quantity
+                val existingIndex = state.items.indexOfFirst { row -> row.itemId == item.id }
+                val updatedItems = if (existingIndex != -1) {
+                    state.items.toMutableList().apply {
+                        val existingItem = this[existingIndex]
+                        this[existingIndex] = existingItem.copy(
+                            quantity = existingItem.quantity + quantity
+                        )
+                    }
+                } else {
+                    state.items + newItem
+                }
+                
+                state.copy(
+                    items = updatedItems,
+                    itemError = null
+                )
+            }
         }
     }
 

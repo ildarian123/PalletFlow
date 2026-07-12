@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.palletflow.domain.usecase.report.FinancialOverview
 import com.palletflow.domain.usecase.report.LotProfitData
 import com.palletflow.domain.usecase.report.PlatformSalesData
 
@@ -180,18 +179,15 @@ fun ReportsScreen(
                     containerColor = Color(0xFF121212),
                     contentColor = Color(0xFF00C2A0),
                     indicator = { tabPositions ->
+                        // selectedTab will be 1 or 2. index 0 corresponds to 1, index 1 corresponds to 2.
+                        val indicatorIndex = if (uiState.selectedTab == 1) 0 else 1
                         TabRowDefaults.SecondaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[uiState.selectedTab]),
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[indicatorIndex]),
                             color = Color(0xFF00C2A0)
                         )
                     },
                     divider = {}
                 ) {
-                    Tab(
-                        selected = uiState.selectedTab == 0,
-                        onClick = { viewModel.onTabChange(0) },
-                        text = { Text("Overview", fontSize = 14.sp) }
-                    )
                     Tab(
                         selected = uiState.selectedTab == 1,
                         onClick = { viewModel.onTabChange(1) },
@@ -208,7 +204,6 @@ fun ReportsScreen(
 
                 // Tab Content
                 when (uiState.selectedTab) {
-                    0 -> OverviewTab(uiState.overview)
                     1 -> LotTab(uiState.lotProfits)
                     2 -> PlatformTab(uiState.platformSales)
                 }
@@ -235,28 +230,6 @@ private fun KpiCard(
             Text(title, color = Color(0xFFA1A1A6), fontSize = 12.sp)
             Spacer(Modifier.height(4.dp))
             Text(value, color = color, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-        }
-    }
-}
-
-@Composable
-private fun OverviewTab(overview: FinancialOverview?) {
-    if (overview == null) {
-        Text("No data available", color = Color(0xFFA1A1A6))
-        return
-    }
-    
-    // Placeholder for chart as per instructions
-    Card(
-        modifier = Modifier.fillMaxWidth().height(220.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Profit Trend Chart", color = Color(0xFFA1A1A6), fontWeight = FontWeight.Medium)
-                Text("(Coming Soon)", color = Color(0xFF666666), fontSize = 12.sp)
-            }
         }
     }
 }
