@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -39,7 +38,6 @@ private val TextPrimary = Color(0xFFF5F5F7)
 private val TextSecondary = Color(0xFFA1A1A6)
 private val SuccessGreen = Color(0xFF4CD964)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onReceiveLotClick: () -> Unit,
@@ -47,7 +45,6 @@ fun DashboardScreen(
     onAddSaleClickWithId: (String) -> Unit,
     onMoveInventoryClick: () -> Unit,
     onAddTransferClickWithId: (String) -> Unit,
-    onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onInventoryItemClick: (String) -> Unit,
@@ -67,7 +64,6 @@ fun DashboardScreen(
         onAddSaleClickWithId = onAddSaleClickWithId,
         onMoveInventoryClick = onMoveInventoryClick,
         onAddTransferClickWithId = onAddTransferClickWithId,
-        onAddExpenseClick = onAddExpenseClick,
         onSeeAllActivityClick = onSeeAllActivityClick,
         onLogoutClick = {
             viewModel.logout()
@@ -91,7 +87,6 @@ fun DashboardScreenContent(
     onAddSaleClickWithId: (String) -> Unit,
     onMoveInventoryClick: () -> Unit,
     onAddTransferClickWithId: (String) -> Unit,
-    onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit,
     onLogoutClick: () -> Unit,
     onInventoryItemClick: (String) -> Unit,
@@ -174,7 +169,6 @@ fun DashboardScreenContent(
                         onReceiveLotClick = onReceiveLotClick,
                         onSellItemClick = onSellItemClick,
                         onMoveInventoryClick = onMoveInventoryClick,
-                        onAddExpenseClick = onAddExpenseClick,
                         onSeeAllActivityClick = onSeeAllActivityClick
                     )
                 }
@@ -214,7 +208,6 @@ fun DashboardContent(
     onReceiveLotClick: () -> Unit,
     onSellItemClick: () -> Unit,
     onMoveInventoryClick: () -> Unit,
-    onAddExpenseClick: () -> Unit,
     onSeeAllActivityClick: () -> Unit
 ) {
     Column(
@@ -233,8 +226,7 @@ fun DashboardContent(
         QuickActionsSection(
             onReceiveLotClick = onReceiveLotClick,
             onSellItemClick = onSellItemClick,
-            onMoveInventoryClick = onMoveInventoryClick,
-            onAddExpenseClick = onAddExpenseClick
+            onMoveInventoryClick = onMoveInventoryClick
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -242,10 +234,82 @@ fun DashboardContent(
         // Recent Activity
         RecentActivitySection(
             activities = uiState.recentActivities,
-            onSeeAllActivityClick = onSeeAllActivityClick
+            onSeeAllClick = onSeeAllActivityClick
         )
         
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun QuickActionsSection(
+    onReceiveLotClick: () -> Unit,
+    onSellItemClick: () -> Unit,
+    onMoveInventoryClick: () -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+        Text(
+            "Quick Actions",
+            color = TextPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickActionItem(
+                icon = Icons.Default.Add,
+                label = "Receive",
+                onClick = onReceiveLotClick,
+                modifier = Modifier.weight(1f)
+            )
+            QuickActionItem(
+                icon = Icons.Default.Sell,
+                label = "Sell",
+                onClick = onSellItemClick,
+                modifier = Modifier.weight(1f)
+            )
+            QuickActionItem(
+                icon = Icons.Default.SwapHoriz,
+                label = "Move",
+                onClick = onMoveInventoryClick,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+fun QuickActionItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceColor)
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = AccentColor,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = label,
+            color = TextPrimary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -254,8 +318,6 @@ fun MetricsSection(uiState: DashboardUiState) {
     val metrics = listOf(
         MetricData("Total Profit", uiState.totalProfit, "This month", null),
         MetricData("Items Sold", uiState.itemsSold, "Total sold", null),
-        MetricData("Active Lots", uiState.activeLots, "In stock", null),
-        MetricData("Avg. Profit", uiState.avgProfit, "Per item", null),
     )
 
     LazyRow(
@@ -311,55 +373,9 @@ fun MetricCard(data: MetricData) {
 }
 
 @Composable
-fun QuickActionsSection(
-    onReceiveLotClick: () -> Unit,
-    onSellItemClick: () -> Unit,
-    onMoveInventoryClick: () -> Unit,
-    onAddExpenseClick: () -> Unit
-) {
-    Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-        Text(
-            "Quick Actions",
-            color = TextPrimary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            QuickActionButton("Receive", Icons.Default.AddBox, onReceiveLotClick)
-            QuickActionButton("Sell", Icons.Default.Sell, onSellItemClick)
-            QuickActionButton("Move", Icons.Default.LocalShipping, onMoveInventoryClick)
-            QuickActionButton("Expense", Icons.Default.Payments, onAddExpenseClick)
-        }
-    }
-}
-
-@Composable
-fun QuickActionButton(label: String, icon: ImageVector, onClick: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { onClick() }
-    ) {
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .background(SurfaceColor, RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = label, tint = AccentColor)
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(label, color = TextSecondary, fontSize = 12.sp)
-    }
-}
-
-@Composable
 fun RecentActivitySection(
     activities: List<RecentActivityUiState>,
-    onSeeAllActivityClick: () -> Unit
+    onSeeAllClick: () -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 24.dp)) {
         Row(
@@ -377,7 +393,8 @@ fun RecentActivitySection(
                 "See All",
                 color = AccentColor,
                 fontSize = 14.sp,
-                modifier = Modifier.clickable { onSeeAllActivityClick() }
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.clickable { onSeeAllClick() }
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -447,8 +464,6 @@ fun DashboardPreview() {
             userName = "PalletFlow Demo",
             totalProfit = "+$1,240.00",
             itemsSold = "48",
-            activeLots = "12",
-            avgProfit = "$25.80",
             recentActivities = listOf(
                 RecentActivityUiState(
                     title = "Sold Samsung Tablet",
@@ -465,7 +480,6 @@ fun DashboardPreview() {
         onReceiveLotClick = {},
         onSellItemClick = {},
         onMoveInventoryClick = {},
-        onAddExpenseClick = {},
         onSeeAllActivityClick = {}
     )
 }

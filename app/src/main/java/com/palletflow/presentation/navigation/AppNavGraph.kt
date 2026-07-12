@@ -150,8 +150,7 @@ fun AppNavGraph(navController: NavHostController) {
                 onAddTransferClickWithId = { transferId ->
                     navController.navigate(Screen.MoveInventory.createRoute(transferId))
                 },
-                onAddExpenseClick = { navController.navigate(Screen.AddExpense.route) },
-                onSeeAllActivityClick = { /* Handle */ },
+                onSeeAllActivityClick = { /* Do nothing */ },
                 onLogoutClick = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Dashboard.route) { inclusive = true }

@@ -35,6 +35,12 @@ class GetFinancialOverviewUseCase @Inject constructor(
             val totalRevenue = salesTransactions.sumOf { it.amount }
             val totalProfit = totalRevenue - totalIncoming
             val profitMargin = if (totalRevenue > 0) (totalProfit / totalRevenue * 100) else 0.0
+            
+            var totalItemsSold = 0
+            salesTransactions.forEach { sale ->
+                val items = transactionRepository.getSaleItems(sale.id)
+                totalItemsSold += items.sumOf { it.quantity }
+            }
 
             Result.success(
                 FinancialOverview(
@@ -42,7 +48,7 @@ class GetFinancialOverviewUseCase @Inject constructor(
                     totalRevenue = totalRevenue,
                     totalProfit = totalProfit,
                     profitMargin = profitMargin,
-                    transactionCount = filteredTransactions.size
+                    transactionCount = totalItemsSold
                 )
             )
         } catch (e: Exception) {

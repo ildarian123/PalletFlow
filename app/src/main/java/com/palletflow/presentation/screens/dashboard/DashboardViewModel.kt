@@ -4,56 +4,68 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.local.dao.UserDao
+import com.palletflow.data.local.entity.TransactionType
+import com.palletflow.domain.repository.TransactionRepository
+import com.palletflow.domain.usecase.report.GetFinancialOverviewUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Calendar
+import javax.inject.Inject
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val authPreferences: AuthPreferences,
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val transactionRepository: TransactionRepository,
+    private val getFinancialOverviewUseCase: GetFinancialOverviewUseCase
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState = _uiState.asStateFlow()
 
     init {
         loadUserProfile()
-        loadRecentActivities()
+        loadDashboardData()
     }
-    //TODO delete
-    private fun loadRecentActivities() {
-        _uiState.update { 
-            it.copy(
-                totalProfit = "+$1,240.00",
-                itemsSold = "48",
-                activeLots = "12",
-                avgProfit = "$25.80",
-                recentActivities = listOf(
-                    RecentActivityUiState(
-                        title = "Sold Samsung Tablet",
-                        detail = "+$120.00",
-                        detailColorType = ActivityDetailColorType.SUCCESS
-                    ),
-                    RecentActivityUiState(
-                        title = "Sold Nike Air Max",
-                        detail = "+$45.00",
-                        detailColorType = ActivityDetailColorType.SUCCESS
-                    ),
-                    RecentActivityUiState(
-                        title = "Shipping Cost",
-                        detail = "-$12.00",
-                        detailColorType = ActivityDetailColorType.NORMAL
-                    ),
-                    RecentActivityUiState(
-                        title = "Received Lot #1043",
-                        detail = "-$850.00",
-                        detailColorType = ActivityDetailColorType.NORMAL
+
+    private fun loadDashboardData() {
+        val userId = authPreferences.getUserId() ?: return
+
+        viewModelScope.launch {
+            // Get Month-to-date range
+            val calendar = Calendar.getInstance()
+            val now = calendar.timeInMillis
+            calendar.set(Calendar.DAY_OF_MONTH, 1)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            val startOfMonth = calendar.timeInMillis
+
+            // 1. Load Overview Metrics (This Month)
+            val overviewResult = getFinancialOverviewUseCase(startOfMonth, now)
+            if (overviewResult.isSuccess) {
+                val overview = overviewResult.getOrNull()
+                _uiState.update { state ->
+                    state.copy(
+                        totalProfit = String.format("$%,.2f", overview?.totalProfit ?: 0.0),
+                        itemsSold = overview?.transactionCount?.toString() ?: "0"
                     )
-                )
-            )
+                }
+            }
+
+            // 2. Load Recent Activities (Transactions)
+            transactionRepository.getAllTransactions(userId).map { transactions ->
+                transactions.sortedByDescending { it.createdAt }.take(10).map { tx ->
+                    val sign = if (tx.type == TransactionType.SALE) "+" else "-"
+                    RecentActivityUiState(
+                        title = tx.notes ?: "${tx.type.name} Transaction",
+                        detail = String.format("%s$%,.2f", sign, tx.amount),
+                        detailColorType = if (tx.type == TransactionType.SALE) ActivityDetailColorType.SUCCESS else ActivityDetailColorType.NORMAL
+                    )
+                }
+            }.onEach { activities ->
+                _uiState.update { it.copy(recentActivities = activities) }
+            }.launchIn(viewModelScope)
         }
     }
 
@@ -78,8 +90,6 @@ data class DashboardUiState(
     val userName: String = "",
     val totalProfit: String = "$0.00",
     val itemsSold: String = "0",
-    val activeLots: String = "0",
-    val avgProfit: String = "$0.00",
     val recentActivities: List<RecentActivityUiState> = emptyList()
 )
 
