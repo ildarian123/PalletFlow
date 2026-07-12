@@ -169,7 +169,8 @@ fun DashboardScreenContent(
                         onReceiveLotClick = onReceiveLotClick,
                         onSellItemClick = onSellItemClick,
                         onMoveInventoryClick = onMoveInventoryClick,
-                        onSeeAllActivityClick = onSeeAllActivityClick
+                        onSeeAllActivityClick = onSeeAllActivityClick,
+                        onReportsClick = { onTabSelected(BottomNavTab.Reports) }
                     )
                 }
                 BottomNavTab.Inventory -> {
@@ -208,7 +209,8 @@ fun DashboardContent(
     onReceiveLotClick: () -> Unit,
     onSellItemClick: () -> Unit,
     onMoveInventoryClick: () -> Unit,
-    onSeeAllActivityClick: () -> Unit
+    onSeeAllActivityClick: () -> Unit,
+    onReportsClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -218,7 +220,7 @@ fun DashboardContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Metrics Section
-        MetricsSection(uiState)
+        MetricsSection(uiState, onReportsClick)
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -314,7 +316,7 @@ fun QuickActionItem(
 }
 
 @Composable
-fun MetricsSection(uiState: DashboardUiState) {
+fun MetricsSection(uiState: DashboardUiState, onMetricClick: () -> Unit) {
     val metrics = listOf(
         MetricData("Total Profit", uiState.totalProfit, "This month", null),
         MetricData("Items Sold", uiState.itemsSold, "Total sold", null),
@@ -325,7 +327,7 @@ fun MetricsSection(uiState: DashboardUiState) {
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(metrics) { metric ->
-            MetricCard(metric)
+            MetricCard(metric, onMetricClick)
         }
     }
 }
@@ -338,11 +340,12 @@ data class MetricData(
 )
 
 @Composable
-fun MetricCard(data: MetricData) {
+fun MetricCard(data: MetricData, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .width(160.dp)
-            .height(120.dp),
+            .height(120.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceColor)
     ) {
@@ -480,6 +483,7 @@ fun DashboardPreview() {
         onReceiveLotClick = {},
         onSellItemClick = {},
         onMoveInventoryClick = {},
-        onSeeAllActivityClick = {}
+        onSeeAllActivityClick = {},
+        onReportsClick = {}
     )
 }
