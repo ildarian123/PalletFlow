@@ -17,4 +17,10 @@ interface SaleItemDao {
 
     @Query("DELETE FROM sale_items WHERE transactionId = :transactionId")
     suspend fun deleteItemsByTransactionId(transactionId: String)
+
+    @Query("SELECT * FROM sale_items")
+    suspend fun getAllSaleItems(): List<SaleItem>
+
+    @Query("SELECT * FROM sale_items")
+    fun getAllSaleItemsFlow(): Flow<List<SaleItem>>
 }

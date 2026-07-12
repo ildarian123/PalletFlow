@@ -5,8 +5,10 @@ import androidx.room.withTransaction
 import com.palletflow.data.local.dao.TransactionDao
 import com.palletflow.data.local.dao.StockDao
 import com.palletflow.data.local.database.AppDatabase
+import com.palletflow.data.local.entity.Stock
 import com.palletflow.data.local.entity.Transaction
 import com.palletflow.data.local.entity.TransactionType
+import com.palletflow.data.local.entity.TransactionStatus
 import com.palletflow.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -81,7 +83,19 @@ class TransactionRepositoryImpl @Inject constructor(
                 if (warehouseId != null) {
                     val items = saleItemDao.getItemsByTransactionId(id)
                     items.forEach { item ->
-                        stockDao.incrementQuantity(userId, item.itemId, warehouseId, item.quantity)
+                        val existingStock = stockDao.getStock(userId, item.itemId, warehouseId)
+                        if (existingStock != null) {
+                            stockDao.incrementQuantity(userId, item.itemId, warehouseId, item.quantity)
+                        } else {
+                            stockDao.insertStock(
+                                Stock(
+                                    userId = userId,
+                                    itemId = item.itemId,
+                                    warehouseId = warehouseId,
+                                    quantity = item.quantity
+                                )
+                            )
+                        }
                     }
                 }
                 
@@ -109,8 +123,22 @@ class TransactionRepositoryImpl @Inject constructor(
                 if (sourceId != null && destId != null) {
                     val items = saleItemDao.getItemsByTransactionId(id)
                     items.forEach { item ->
-                        // Revert: add back to source, remove from destination
-                        stockDao.incrementQuantity(userId, item.itemId, sourceId, item.quantity)
+                        // Revert: add back to source
+                        val existingSourceStock = stockDao.getStock(userId, item.itemId, sourceId)
+                        if (existingSourceStock != null) {
+                            stockDao.incrementQuantity(userId, item.itemId, sourceId, item.quantity)
+                        } else {
+                            stockDao.insertStock(
+                                Stock(
+                                    userId = userId,
+                                    itemId = item.itemId,
+                                    warehouseId = sourceId,
+                                    quantity = item.quantity
+                                )
+                            )
+                        }
+                        
+                        // Revert: remove from destination
                         stockDao.decrementQuantity(userId, item.itemId, destId, item.quantity)
                     }
                 }
@@ -127,6 +155,12 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun getSaleItems(transactionId: String) = 
         saleItemDao.getItemsByTransactionId(transactionId)
+
+    override suspend fun getAllSaleItems() = 
+        saleItemDao.getAllSaleItems()
+
+    override fun getAllSaleItemsFlow() = 
+        saleItemDao.getAllSaleItemsFlow()
 
     override suspend fun getSaleExpenses(transactionId: String) = 
         saleExpenseDao.getExpensesByTransactionId(transactionId)
