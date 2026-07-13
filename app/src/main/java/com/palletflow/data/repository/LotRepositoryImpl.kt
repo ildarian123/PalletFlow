@@ -2,13 +2,17 @@ package com.palletflow.data.repository
 
 import android.util.Log
 import androidx.room.withTransaction
+import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.*
 import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.*
 import com.palletflow.domain.repository.LotRepository
 import com.palletflow.domain.usecase.lot.ExpenseToAdd
 import com.palletflow.domain.usecase.lot.ItemToReceive
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,13 +23,37 @@ class LotRepositoryImpl @Inject constructor(
     private val lotItemDao: LotItemDao,
     private val lotExpenseDao: LotExpenseDao,
     private val stockDao: StockDao,
-    private val transactionDao: TransactionDao
+    private val transactionDao: TransactionDao,
+    private val firestoreSyncManager: FirestoreSyncManager
 ) : LotRepository {
-    override fun getAllLots(): Flow<List<Lot>> = lotDao.getAllLots()
+
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private fun startSync(userId: String) {
+        firestoreSyncManager.observeCollection("lots", userId, Lot::class.java)
+            .onEach { lots -> lots.forEach { lotDao.insertLot(it) } }
+            .launchIn(repositoryScope)
+        
+        firestoreSyncManager.observeCollection("lot_items", userId, LotItem::class.java)
+            .onEach { items -> items.forEach { lotItemDao.insertLotItem(it) } }
+            .launchIn(repositoryScope)
+
+        firestoreSyncManager.observeCollection("lot_expenses", userId, LotExpense::class.java)
+            .onEach { expenses -> expenses.forEach { lotExpenseDao.insertExpense(it) } }
+            .launchIn(repositoryScope)
+    }
+
+    override fun getAllLots(userId: String): Flow<List<Lot>> {
+        startSync(userId)
+        return lotDao.getLotsByUser(userId)
+    }
 
     override suspend fun receiveNewLot(lot: Lot, items: List<LotItem>) {
         lotDao.insertLot(lot)
         items.forEach { lotItemDao.insertLotItem(it) }
+        
+        firestoreSyncManager.syncToCloud("lots", lot.id, lot)
+        items.forEach { firestoreSyncManager.syncToCloud("lot_items", it.id, it) }
     }
 
     override fun getLotDetail(lotId: String): Flow<Lot?> = lotDao.getLotById(lotId)
@@ -43,42 +71,33 @@ class LotRepositoryImpl @Inject constructor(
     ): Result<Lot> {
         Log.d("LotRepository", "createLotWithItems started for lot: ${lot.lotNumber}")
         return try {
-            database.withTransaction {
-                // 1. Validate lot number is unique
+            val result = database.withTransaction {
                 if (!isLotNumberUnique(lot.lotNumber)) {
-                    Log.d("LotRepository", "Lot number ${lot.lotNumber} is NOT unique")
                     throw Exception("Lot number already exists")
                 }
 
-                // 2. Create Lot
-                Log.d("LotRepository", "Inserting lot...")
                 lotDao.insertLot(lot)
 
-                // 3. Create LotItem records
-                Log.d("LotRepository", "Inserting ${items.size} lot items...")
-                items.forEach { item ->
-                    val lotItem = LotItem(
+                val lotItems = items.map { item ->
+                    LotItem(
                         lotId = lot.id,
                         itemId = item.itemId,
                         quantity = item.quantity,
                         unitPrice = item.unitPrice
                     )
-                    lotItemDao.insertLotItem(lotItem)
                 }
+                lotItems.forEach { lotItemDao.insertLotItem(it) }
 
-                // 4. Create LotExpense records
-                Log.d("LotRepository", "Inserting ${expenses.size} expenses...")
-                expenses.forEach { expense ->
-                    val lotExpense = LotExpense(
+                val lotExpenses = expenses.map { expense ->
+                    LotExpense(
                         lotId = lot.id,
                         name = expense.name,
                         amount = expense.amount
                     )
-                    lotExpenseDao.insertExpense(lotExpense)
                 }
+                lotExpenses.forEach { lotExpenseDao.insertExpense(it) }
 
-                // 4. Create Stock records for each item
-                Log.d("LotRepository", "Updating stock for ${items.size} items...")
+                val stocksToSync = mutableListOf<Stock>()
                 items.forEach { item ->
                     val stock = Stock(
                         userId = lot.userId,
@@ -86,24 +105,16 @@ class LotRepositoryImpl @Inject constructor(
                         warehouseId = lot.warehouseId,
                         quantity = item.quantity
                     )
-                    // Check if stock exists, if yes increment, if no insert
                     val existingStock = stockDao.getStock(lot.userId, item.itemId, lot.warehouseId)
                     if (existingStock != null) {
-                        Log.d("LotRepository", "Incrementing stock for item ${item.itemId}")
-                        stockDao.incrementQuantity(
-                            lot.userId,
-                            item.itemId,
-                            lot.warehouseId,
-                            item.quantity
-                        )
+                        stockDao.incrementQuantity(lot.userId, item.itemId, lot.warehouseId, item.quantity)
+                        stocksToSync.add(existingStock.copy(quantity = existingStock.quantity + item.quantity))
                     } else {
-                        Log.d("LotRepository", "Inserting new stock for item ${item.itemId}")
                         stockDao.insertStock(stock)
+                        stocksToSync.add(stock)
                     }
                 }
 
-                // 5. Create Incoming Transaction
-                Log.d("LotRepository", "Creating transaction record...")
                 val totalItemsCost = items.sumOf { (it.unitPrice ?: 0.0) * it.quantity }
                 val totalExpenses = expenses.sumOf { it.amount }
                 
@@ -114,14 +125,20 @@ class LotRepositoryImpl @Inject constructor(
                     lotId = lot.id,
                     quantity = items.sumOf { it.quantity },
                     amount = lot.purchasePrice + totalItemsCost + totalExpenses,
-                    warehouseFromId = null,
                     warehouseToId = lot.warehouseId,
                     notes = "Lot ${lot.lotNumber} received"
                 )
                 transactionDao.insertTransaction(transaction)
+                
+                FirestoreLotSyncData(lotItems, lotExpenses, transaction, stocksToSync)
             }
 
-            Log.d("LotRepository", "createLotWithItems completed successfully")
+            firestoreSyncManager.syncToCloud("lots", lot.id, lot)
+            result.lotItems.forEach { firestoreSyncManager.syncToCloud("lot_items", it.id, it) }
+            result.lotExpenses.forEach { firestoreSyncManager.syncToCloud("lot_expenses", it.id, it) }
+            firestoreSyncManager.syncToCloud("transactions", result.transaction.id, result.transaction)
+            result.stocks.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+
             Result.success(lot)
         } catch (e: Exception) {
             Log.e("LotRepository", "Failed to create lot with items", e)
@@ -138,72 +155,57 @@ class LotRepositoryImpl @Inject constructor(
         items: List<ItemToReceive>,
         expenses: List<ExpenseToAdd>
     ): Result<Lot> {
-        Log.d("LotRepository", "updateLotWithItems started for lot: ${lot.lotNumber}")
         return try {
-            database.withTransaction {
-                // 1. Get old items and revert stock impact
+            val result = database.withTransaction {
                 val oldItems = lotItemDao.getItemsByLotSync(lot.id)
                 oldItems.forEach { oldItem ->
-                    stockDao.decrementQuantity(
-                        lot.userId,
-                        oldItem.itemId,
-                        lot.warehouseId,
-                        oldItem.quantity
-                    )
+                    stockDao.decrementQuantity(lot.userId, oldItem.itemId, lot.warehouseId, oldItem.quantity)
                 }
 
-                // 2. Update Lot
-                lotDao.insertLot(lot) // @Insert(onConflict = REPLACE) handles update
-
-                // 3. Update LotItems (Delete old, Insert new)
+                lotDao.insertLot(lot)
                 lotItemDao.deleteItemsByLot(lot.id)
-                items.forEach { item ->
-                    val lotItem = LotItem(
+                
+                val lotItems = items.map { item ->
+                    LotItem(
                         lotId = lot.id,
                         itemId = item.itemId,
                         quantity = item.quantity,
                         unitPrice = item.unitPrice
                     )
-                    lotItemDao.insertLotItem(lotItem)
-                    
-                    // 4. Apply new stock impact
-                    val existingStock = stockDao.getStock(lot.userId, item.itemId, lot.warehouseId)
+                }
+                lotItems.forEach { lotItemDao.insertLotItem(it) }
+                
+                val stocksToSync = mutableListOf<Stock>()
+                lotItems.forEach { lotItem ->
+                    val existingStock = stockDao.getStock(lot.userId, lotItem.itemId, lot.warehouseId)
                     if (existingStock != null) {
-                        stockDao.incrementQuantity(
-                            lot.userId,
-                            item.itemId,
-                            lot.warehouseId,
-                            item.quantity
-                        )
+                        stockDao.incrementQuantity(lot.userId, lotItem.itemId, lot.warehouseId, lotItem.quantity)
+                        stocksToSync.add(existingStock.copy(quantity = existingStock.quantity + lotItem.quantity))
                     } else {
                         val newStock = Stock(
                             userId = lot.userId,
-                            itemId = item.itemId,
+                            itemId = lotItem.itemId,
                             warehouseId = lot.warehouseId,
-                            quantity = item.quantity
+                            quantity = lotItem.quantity
                         )
                         stockDao.insertStock(newStock)
+                        stocksToSync.add(newStock)
                     }
                 }
 
-                // 5. Update Expenses (Delete old, Insert new)
                 lotExpenseDao.deleteExpensesByLot(lot.id)
-                expenses.forEach { expense ->
-                    val lotExpense = LotExpense(
-                        lotId = lot.id,
-                        name = expense.name,
-                        amount = expense.amount
-                    )
+                val lotExpenses = expenses.map { expense ->
+                    val lotExpense = LotExpense(lotId = lot.id, name = expense.name, amount = expense.amount)
                     lotExpenseDao.insertExpense(lotExpense)
+                    lotExpense
                 }
                 
-                // 6. Update Transaction record
                 val existingTransaction = transactionDao.getTransactionByLotId(lot.id)
                 val totalItemsCost = items.sumOf { (it.unitPrice ?: 0.0) * it.quantity }
                 val totalExpenses = expenses.sumOf { it.amount }
                 val totalAmount = lot.purchasePrice + totalItemsCost + totalExpenses
 
-                if (existingTransaction != null) {
+                val finalTransaction = if (existingTransaction != null) {
                     val updatedTransaction = existingTransaction.copy(
                         quantity = items.sumOf { it.quantity },
                         amount = totalAmount,
@@ -211,23 +213,27 @@ class LotRepositoryImpl @Inject constructor(
                         updatedAt = System.currentTimeMillis()
                     )
                     transactionDao.updateTransaction(updatedTransaction)
-                    Log.d("LotRepository", "Updated transaction for lot ${lot.id}")
+                    updatedTransaction
                 } else {
-                    // Create if missing for some reason
                     val newTransaction = Transaction(
-                        userId = lot.userId,
-                        type = TransactionType.INCOMING,
-                        status = TransactionStatus.COMPLETED,
-                        lotId = lot.id,
-                        quantity = items.sumOf { it.quantity },
-                        amount = totalAmount,
-                        warehouseToId = lot.warehouseId,
-                        notes = "Lot ${lot.lotNumber} received"
+                        userId = lot.userId, type = TransactionType.INCOMING,
+                        status = TransactionStatus.COMPLETED, lotId = lot.id,
+                        quantity = items.sumOf { it.quantity }, amount = totalAmount,
+                        warehouseToId = lot.warehouseId, notes = "Lot ${lot.lotNumber} received"
                     )
                     transactionDao.insertTransaction(newTransaction)
+                    newTransaction
                 }
+                
+                FirestoreLotSyncData(lotItems, lotExpenses, finalTransaction, stocksToSync)
             }
-            Log.d("LotRepository", "updateLotWithItems completed successfully")
+            
+            firestoreSyncManager.syncToCloud("lots", lot.id, lot)
+            result.lotItems.forEach { firestoreSyncManager.syncToCloud("lot_items", it.id, it) }
+            result.lotExpenses.forEach { firestoreSyncManager.syncToCloud("lot_expenses", it.id, it) }
+            firestoreSyncManager.syncToCloud("transactions", result.transaction.id, result.transaction)
+            result.stocks.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+
             Result.success(lot)
         } catch (e: Exception) {
             Log.e("LotRepository", "Failed to update lot with items", e)
@@ -236,28 +242,34 @@ class LotRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteLot(lotId: String, userId: String): Result<Unit> {
-        Log.d("LotRepository", "deleteLot started for lot: $lotId")
         return try {
-            database.withTransaction {
+            val result = database.withTransaction {
                 val lot = lotDao.getLotByIdSync(lotId) ?: throw Exception("Lot not found")
                 val items = lotItemDao.getItemsByLotSync(lotId)
+                val expenses = lotExpenseDao.getExpensesByLotSync(lotId)
+                val transaction = transactionDao.getTransactionByLotId(lotId)
                 
-                // 1. Revert stock impact
+                val stocksToSync = mutableListOf<Stock>()
                 items.forEach { item ->
-                    stockDao.decrementQuantity(
-                        userId = userId,
-                        itemId = item.itemId,
-                        warehouseId = lot.warehouseId,
-                        quantity = item.quantity
-                    )
+                    stockDao.decrementQuantity(userId, item.itemId, lot.warehouseId, item.quantity)
+                    val currentStock = stockDao.getStock(userId, item.itemId, lot.warehouseId)
+                    if (currentStock != null) stocksToSync.add(currentStock)
                 }
                 
-                // 2. Delete related records
                 lotItemDao.deleteItemsByLot(lotId)
                 lotExpenseDao.deleteExpensesByLot(lotId)
                 transactionDao.deleteTransactionByLotId(lotId)
                 lotDao.deleteLot(lot)
+                
+                FirestoreLotSyncData(items, expenses, transaction ?: Transaction(userId = userId, type = TransactionType.INCOMING), stocksToSync)
             }
+            
+            firestoreSyncManager.deleteFromCloud("lots", lotId)
+            result.lotItems.forEach { firestoreSyncManager.deleteFromCloud("lot_items", it.id) }
+            result.lotExpenses.forEach { firestoreSyncManager.deleteFromCloud("lot_expenses", it.id) }
+            firestoreSyncManager.deleteFromCloud("transactions", result.transaction.id)
+            result.stocks.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+            
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("LotRepository", "Failed to delete lot", e)
@@ -268,3 +280,10 @@ class LotRepositoryImpl @Inject constructor(
     override suspend fun getLotIdForItem(itemId: String): String? = 
         lotItemDao.getLotIdForItem(itemId)
 }
+
+data class FirestoreLotSyncData(
+    val lotItems: List<LotItem>,
+    val lotExpenses: List<LotExpense>,
+    val transaction: Transaction,
+    val stocks: List<Stock>
+)

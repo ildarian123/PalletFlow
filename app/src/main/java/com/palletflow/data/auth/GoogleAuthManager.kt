@@ -8,16 +8,20 @@ import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import com.palletflow.R
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.local.entity.UserProfile
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class GoogleAuthManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val authPreferences: AuthPreferences
 ) {
+    private val firebaseAuth = FirebaseAuth.getInstance()
 
     private val googleSignInClient: GoogleSignInClient by lazy {
         Log.d("GoogleAuthManager", "Initializing GoogleSignInClient")
@@ -45,11 +49,20 @@ class GoogleAuthManager @Inject constructor(
             val account = task.getResult(ApiException::class.java)
             
             if (account != null) {
-                Log.d("GoogleAuthManager", "Sign-in successful: ${account.email}")
+                Log.d("GoogleAuthManager", "Google account retrieved: ${account.email}")
+                
+                // Perform Firebase Sign-In
+                val idToken = account.idToken ?: throw Exception("ID Token is null")
+                val credential = GoogleAuthProvider.getCredential(idToken, null)
+                val authResult = firebaseAuth.signInWithCredential(credential).await()
+                val firebaseUser = authResult.user ?: throw Exception("Firebase user is null")
+                
+                Log.d("GoogleAuthManager", "Firebase Sign-in successful: ${firebaseUser.email}")
+
                 val userProfile = UserProfile(
-                    id = account.id!!,
-                    email = account.email!!,
-                    businessName = account.displayName ?: "My Business",
+                    id = firebaseUser.uid, // Use Firebase UID as the unique identifier
+                    email = firebaseUser.email!!,
+                    businessName = firebaseUser.displayName ?: "My Business",
                     passwordHash = ""  // Not used for Google Sign-In
                 )
                 
@@ -70,6 +83,7 @@ class GoogleAuthManager @Inject constructor(
     }
 
     fun signOut() {
+        firebaseAuth.signOut()
         googleSignInClient.signOut().addOnCompleteListener {
             authPreferences.clearCredentials()
         }

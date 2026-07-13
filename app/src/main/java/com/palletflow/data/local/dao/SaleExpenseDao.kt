@@ -17,4 +17,7 @@ interface SaleExpenseDao {
 
     @Query("DELETE FROM sale_expenses WHERE transactionId = :transactionId")
     suspend fun deleteExpensesByTransactionId(transactionId: String)
+
+    @Query("SELECT * FROM sale_expenses")
+    suspend fun getAllSaleExpenses(): List<SaleExpense>
 }

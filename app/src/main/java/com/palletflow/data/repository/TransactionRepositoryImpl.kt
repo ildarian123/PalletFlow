@@ -2,15 +2,16 @@ package com.palletflow.data.repository
 
 import android.util.Log
 import androidx.room.withTransaction
+import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.TransactionDao
 import com.palletflow.data.local.dao.StockDao
 import com.palletflow.data.local.database.AppDatabase
-import com.palletflow.data.local.entity.Stock
-import com.palletflow.data.local.entity.Transaction
-import com.palletflow.data.local.entity.TransactionType
-import com.palletflow.data.local.entity.TransactionStatus
+import com.palletflow.data.local.entity.*
 import com.palletflow.domain.repository.TransactionRepository
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,21 +21,50 @@ class TransactionRepositoryImpl @Inject constructor(
     private val transactionDao: TransactionDao,
     private val stockDao: StockDao,
     private val saleItemDao: com.palletflow.data.local.dao.SaleItemDao,
-    private val saleExpenseDao: com.palletflow.data.local.dao.SaleExpenseDao
+    private val saleExpenseDao: com.palletflow.data.local.dao.SaleExpenseDao,
+    private val firestoreSyncManager: FirestoreSyncManager
 ) : TransactionRepository {
 
-    override fun getAllTransactions(userId: String): Flow<List<Transaction>> =
-        transactionDao.getAllTransactions(userId)
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    override fun getTransactionsByType(userId: String, type: TransactionType): Flow<List<Transaction>> =
-        transactionDao.getTransactionsByType(userId, type)
+    private fun startSync(userId: String) {
+        firestoreSyncManager.observeCollection("transactions", userId, Transaction::class.java)
+            .onEach { transactions ->
+                transactions.forEach { transactionDao.insertTransaction(it) }
+            }
+            .launchIn(repositoryScope)
+
+        firestoreSyncManager.observeCollection("sale_items", userId, SaleItem::class.java)
+            .onEach { items ->
+                items.forEach { saleItemDao.insertSaleItem(it) }
+            }
+            .launchIn(repositoryScope)
+
+        firestoreSyncManager.observeCollection("sale_expenses", userId, SaleExpense::class.java)
+            .onEach { expenses ->
+                expenses.forEach { saleExpenseDao.insertSaleExpense(it) }
+            }
+            .launchIn(repositoryScope)
+    }
+
+    override fun getAllTransactions(userId: String): Flow<List<Transaction>> {
+        startSync(userId)
+        return transactionDao.getAllTransactions(userId)
+    }
+
+    override fun getTransactionsByType(userId: String, type: TransactionType): Flow<List<Transaction>> {
+        startSync(userId)
+        return transactionDao.getTransactionsByType(userId, type)
+    }
 
     override fun getTransactionsByDateRange(
         userId: String,
         startDate: Long,
         endDate: Long
-    ): Flow<List<Transaction>> =
-        transactionDao.getTransactionsByDateRange(userId, startDate, endDate)
+    ): Flow<List<Transaction>> {
+        startSync(userId)
+        return transactionDao.getTransactionsByDateRange(userId, startDate, endDate)
+    }
 
     override suspend fun getTransactionById(id: String, userId: String): Transaction? =
         transactionDao.getTransactionById(id, userId)
@@ -45,6 +75,7 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun createTransaction(transaction: Transaction): Result<Transaction> {
         return try {
             transactionDao.insertTransaction(transaction)
+            firestoreSyncManager.syncToCloud("transactions", transaction.id, transaction)
             Result.success(transaction)
         } catch (e: Exception) {
             Log.e("TransactionRepository", "Failed to create transaction", e)
@@ -55,6 +86,7 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun updateTransaction(transaction: Transaction): Result<Transaction> {
         return try {
             transactionDao.updateTransaction(transaction)
+            firestoreSyncManager.syncToCloud("transactions", transaction.id, transaction)
             Result.success(transaction)
         } catch (e: Exception) {
             Log.e("TransactionRepository", "Failed to update transaction", e)
@@ -65,6 +97,7 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun deleteTransaction(id: String, userId: String): Result<Unit> {
         return try {
             transactionDao.deleteTransactionById(id, userId)
+            firestoreSyncManager.deleteFromCloud("transactions", id)
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("TransactionRepository", "Failed to delete transaction", e)
@@ -75,10 +108,14 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun deleteSale(id: String, userId: String): Result<Unit> {
         Log.d("TransactionRepository", "deleteSale started for sale: $id")
         return try {
-            database.withTransaction {
+            val result = database.withTransaction {
                 val transaction = transactionDao.getTransactionById(id, userId)
                     ?: throw Exception("Sale not found")
                 
+                val itemsToSync = mutableListOf<SaleItem>()
+                val expensesToSync = mutableListOf<SaleExpense>()
+                val stocksToSync = mutableListOf<Stock>()
+
                 val warehouseId = transaction.warehouseFromId
                 if (warehouseId != null) {
                     val items = saleItemDao.getItemsByTransactionId(id)
@@ -86,23 +123,37 @@ class TransactionRepositoryImpl @Inject constructor(
                         val existingStock = stockDao.getStock(userId, item.itemId, warehouseId)
                         if (existingStock != null) {
                             stockDao.incrementQuantity(userId, item.itemId, warehouseId, item.quantity)
+                            stocksToSync.add(existingStock.copy(quantity = existingStock.quantity + item.quantity))
                         } else {
-                            stockDao.insertStock(
-                                Stock(
-                                    userId = userId,
-                                    itemId = item.itemId,
-                                    warehouseId = warehouseId,
-                                    quantity = item.quantity
-                                )
+                            val newStock = Stock(
+                                userId = userId,
+                                itemId = item.itemId,
+                                warehouseId = warehouseId,
+                                quantity = item.quantity
                             )
+                            stockDao.insertStock(newStock)
+                            stocksToSync.add(newStock)
                         }
+                        itemsToSync.add(item)
                     }
                 }
                 
+                val expenses = saleExpenseDao.getExpensesByTransactionId(id)
+                expenses.forEach { expensesToSync.add(it) }
+
                 saleItemDao.deleteItemsByTransactionId(id)
                 saleExpenseDao.deleteExpensesByTransactionId(id)
                 transactionDao.deleteTransactionById(id, userId)
+                
+                Triple(itemsToSync, expensesToSync, stocksToSync)
             }
+
+            // Cloud deletes
+            firestoreSyncManager.deleteFromCloud("transactions", id)
+            result.first.forEach { firestoreSyncManager.deleteFromCloud("sale_items", it.id) }
+            result.second.forEach { firestoreSyncManager.deleteFromCloud("sale_expenses", it.id) }
+            result.third.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("TransactionRepository", "Failed to delete sale", e)
@@ -113,6 +164,7 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun deleteTransfer(id: String, userId: String): Result<Unit> {
         Log.d("TransactionRepository", "deleteTransfer started for transfer: $id")
         return try {
+            val stocksToSync = mutableListOf<Stock>()
             database.withTransaction {
                 val transaction = transactionDao.getTransactionById(id, userId)
                     ?: throw Exception("Transfer not found")
@@ -127,25 +179,32 @@ class TransactionRepositoryImpl @Inject constructor(
                         val existingSourceStock = stockDao.getStock(userId, item.itemId, sourceId)
                         if (existingSourceStock != null) {
                             stockDao.incrementQuantity(userId, item.itemId, sourceId, item.quantity)
+                            stocksToSync.add(existingSourceStock.copy(quantity = existingSourceStock.quantity + item.quantity))
                         } else {
-                            stockDao.insertStock(
-                                Stock(
-                                    userId = userId,
-                                    itemId = item.itemId,
-                                    warehouseId = sourceId,
-                                    quantity = item.quantity
-                                )
+                            val newStock = Stock(
+                                userId = userId,
+                                itemId = item.itemId,
+                                warehouseId = sourceId,
+                                quantity = item.quantity
                             )
+                            stockDao.insertStock(newStock)
+                            stocksToSync.add(newStock)
                         }
                         
                         // Revert: remove from destination
                         stockDao.decrementQuantity(userId, item.itemId, destId, item.quantity)
+                        val currentDestStock = stockDao.getStock(userId, item.itemId, destId)
+                        if (currentDestStock != null) stocksToSync.add(currentDestStock)
                     }
                 }
                 
                 saleItemDao.deleteItemsByTransactionId(id)
                 transactionDao.deleteTransactionById(id, userId)
             }
+
+            firestoreSyncManager.deleteFromCloud("transactions", id)
+            stocksToSync.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("TransactionRepository", "Failed to delete transfer", e)

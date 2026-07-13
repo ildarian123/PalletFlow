@@ -1,23 +1,42 @@
 package com.palletflow.data.repository
 
 import android.util.Log
+import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.WarehouseDao
 import com.palletflow.data.local.entity.Warehouse
 import com.palletflow.domain.repository.WarehouseRepository
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class WarehouseRepositoryImpl @Inject constructor(
-    private val warehouseDao: WarehouseDao
+    private val warehouseDao: WarehouseDao,
+    private val firestoreSyncManager: FirestoreSyncManager
 ) : WarehouseRepository {
 
-    override fun getActiveWarehouses(userId: String): Flow<List<Warehouse>> =
-        warehouseDao.getActiveWarehousesByUser(userId)
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    override fun getAllWarehouses(userId: String): Flow<List<Warehouse>> =
-        warehouseDao.getAllWarehousesByUser(userId)
+    private fun startSync(userId: String) {
+        firestoreSyncManager.observeCollection("warehouses", userId, Warehouse::class.java)
+            .onEach { warehouses ->
+                warehouses.forEach { warehouseDao.insertWarehouse(it) }
+            }
+            .launchIn(repositoryScope)
+    }
+
+    override fun getActiveWarehouses(userId: String): Flow<List<Warehouse>> {
+        startSync(userId)
+        return warehouseDao.getActiveWarehousesByUser(userId)
+    }
+
+    override fun getAllWarehouses(userId: String): Flow<List<Warehouse>> {
+        startSync(userId)
+        return warehouseDao.getAllWarehousesByUser(userId)
+    }
 
     override suspend fun getWarehouseById(id: String, userId: String): Warehouse? =
         warehouseDao.getWarehouseById(id, userId)
@@ -29,6 +48,7 @@ class WarehouseRepositoryImpl @Inject constructor(
                 return Result.failure(Exception("Warehouse name already exists"))
             }
             warehouseDao.insertWarehouse(warehouse)
+            firestoreSyncManager.syncToCloud("warehouses", warehouse.id, warehouse)
             Result.success(warehouse)
         } catch (e: Exception) {
             Log.e("WarehouseRepository", "Failed to create warehouse", e)
@@ -44,6 +64,7 @@ class WarehouseRepositoryImpl @Inject constructor(
             }
             val updated = warehouse.copy(updatedAt = System.currentTimeMillis())
             warehouseDao.updateWarehouse(updated)
+            firestoreSyncManager.syncToCloud("warehouses", updated.id, updated)
             Result.success(updated)
         } catch (e: Exception) {
             Log.e("WarehouseRepository", "Failed to update warehouse", e)
@@ -54,6 +75,7 @@ class WarehouseRepositoryImpl @Inject constructor(
     override suspend fun deleteWarehouse(id: String, userId: String): Result<Unit> {
         return try {
             warehouseDao.deleteWarehouseById(id, userId)
+            firestoreSyncManager.deleteFromCloud("warehouses", id)
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("WarehouseRepository", "Failed to delete warehouse", e)

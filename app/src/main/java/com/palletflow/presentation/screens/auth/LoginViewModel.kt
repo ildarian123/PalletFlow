@@ -10,6 +10,8 @@ import com.palletflow.data.auth.GoogleAuthManager
 import com.palletflow.data.backup.BackupData
 import com.palletflow.data.backup.GoogleDriveBackupManager
 import com.palletflow.data.datastore.AuthPreferences
+import com.palletflow.data.firestore.FirestoreBackupData
+import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.*
 import com.palletflow.data.util.PasswordHasher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,10 +29,17 @@ class LoginViewModel @Inject constructor(
     private val userDao: UserDao,
     private val googleAuthManager: GoogleAuthManager,
     private val googleDriveBackupManager: GoogleDriveBackupManager,
+    private val firestoreSyncManager: FirestoreSyncManager,
     private val itemDao: ItemDao,
+    private val warehouseDao: WarehouseDao,
+    private val supplierDao: SupplierDao,
     private val lotDao: LotDao,
+    private val lotItemDao: LotItemDao,
+    private val lotExpenseDao: LotExpenseDao,
     private val transactionDao: TransactionDao,
-    private val stockDao: StockDao
+    private val stockDao: StockDao,
+    private val saleItemDao: SaleItemDao,
+    private val saleExpenseDao: SaleExpenseDao
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState = _uiState.asStateFlow()
@@ -66,6 +75,17 @@ class LoginViewModel @Inject constructor(
 
                     authPreferences.saveGoogleUser(userProfile.id, userProfile.email)
                     
+                    // Trigger auto-restore from Firestore (Real-time cloud sync)
+                    Log.d("LoginViewModel", "Attempting auto-restore from Firestore")
+                    val firestoreResult = firestoreSyncManager.fetchAllUserData(userProfile.id)
+                    if (firestoreResult.isSuccess) {
+                        val data = firestoreResult.getOrNull()
+                        if (data != null) {
+                            Log.d("LoginViewModel", "Firestore data found, restoring to local DB")
+                            restoreFirestoreDataToDatabase(data)
+                        }
+                    }
+
                     // Trigger auto-restore from Google Drive
                     Log.d("LoginViewModel", "Attempting auto-restore from Google Drive")
                     val restoreResult = googleDriveBackupManager.restoreFromDrive()
@@ -102,6 +122,19 @@ class LoginViewModel @Inject constructor(
         backup.lots.forEach { lotDao.insertLot(it) }
         backup.transactions.forEach { transactionDao.insertTransaction(it) }
         backup.stocks.forEach { stockDao.insertStock(it) }
+    }
+
+    private suspend fun restoreFirestoreDataToDatabase(data: FirestoreBackupData) {
+        data.items.forEach { itemDao.insertItem(it) }
+        data.warehouses.forEach { warehouseDao.insertWarehouse(it) }
+        data.suppliers.forEach { supplierDao.insertSupplier(it) }
+        data.lots.forEach { lotDao.insertLot(it) }
+        data.lotItems.forEach { lotItemDao.insertLotItem(it) }
+        data.lotExpenses.forEach { lotExpenseDao.insertExpense(it) }
+        data.transactions.forEach { transactionDao.insertTransaction(it) }
+        data.stocks.forEach { stockDao.insertStock(it) }
+        data.saleItems.forEach { saleItemDao.insertSaleItem(it) }
+        data.saleExpenses.forEach { saleExpenseDao.insertSaleExpense(it) }
     }
 
     init {

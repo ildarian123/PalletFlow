@@ -33,4 +33,10 @@ interface LotExpenseDao {
         DELETE FROM lot_expenses WHERE lotId = :lotId
     """)
     suspend fun deleteExpensesByLot(lotId: String)
+
+    @Query("SELECT * FROM lot_expenses WHERE lotId = :lotId")
+    suspend fun getExpensesByLotSync(lotId: String): List<LotExpense>
+
+    @Query("SELECT * FROM lot_expenses")
+    fun getAllExpenses(): Flow<List<LotExpense>>
 }

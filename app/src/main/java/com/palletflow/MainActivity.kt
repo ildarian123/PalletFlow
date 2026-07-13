@@ -1,6 +1,7 @@
 package com.palletflow
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -9,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.firestore.FirebaseFirestore
 import com.palletflow.presentation.navigation.AppNavGraph
 import com.palletflow.ui.theme.PalletFlowTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -18,6 +20,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Handle Firestore network
+        FirebaseFirestore.getInstance().enableNetwork().addOnCompleteListener {
+            Log.d("Firestore", "Network enabled")
+        }
+
         setContent {
             PalletFlowTheme {
                 Surface(

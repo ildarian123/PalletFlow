@@ -2,6 +2,7 @@ package com.palletflow.di
 
 import android.content.Context
 import com.palletflow.data.workers.BackupScheduler
+import com.palletflow.data.workers.SyncScheduler
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -19,5 +20,13 @@ object WorkerModule {
         @ApplicationContext context: Context
     ): BackupScheduler {
         return BackupScheduler(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSyncScheduler(
+        @ApplicationContext context: Context
+    ): SyncScheduler {
+        return SyncScheduler(context)
     }
 }

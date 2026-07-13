@@ -8,7 +8,7 @@ import com.palletflow.domain.usecase.lot.ItemToReceive
 import kotlinx.coroutines.flow.Flow
 
 interface LotRepository {
-    fun getAllLots(): Flow<List<Lot>>
+    fun getAllLots(userId: String): Flow<List<Lot>>
     suspend fun receiveNewLot(lot: Lot, items: List<LotItem>)
     fun getLotDetail(lotId: String): Flow<Lot?>
 

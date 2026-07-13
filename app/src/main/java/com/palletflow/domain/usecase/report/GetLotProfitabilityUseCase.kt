@@ -22,7 +22,7 @@ class GetLotProfitabilityUseCase @Inject constructor(
             ?: return Result.failure(Exception("User not logged in"))
 
         return try {
-            val lots = lotRepository.getAllLots().first().filter { it.userId == userId }
+            val lots = lotRepository.getAllLots(userId).first()
             
             // Get all incoming transactions to get the REAL cost of each lot
             val incomingTransactions = transactionRepository.getTransactionsByType(userId, TransactionType.INCOMING).first()
