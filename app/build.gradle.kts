@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlinCompose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -10,7 +11,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.palletflow"
+        applicationId = "com.PalletFlow"
         minSdk = 30
         targetSdk = 35
         versionCode = 1
@@ -34,6 +35,13 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/DEPENDENCIES"
+        }
     }
 }
 
@@ -73,6 +81,23 @@ dependencies {
 
     // Security
     implementation(libs.androidx.security.crypto)
+
+    // Google Sign-In & Drive
+    implementation(libs.play.services.auth)
+    implementation(libs.play.services.auth.api.phone)
+    implementation(libs.play.services.drive)
+    implementation(libs.google.api.client)
+    implementation(libs.google.api.client.android)
+    implementation(libs.google.api.client.gson)
+    implementation(libs.google.api.services.drive)
+    implementation(libs.gson)
+
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
+
+    // Firebase
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

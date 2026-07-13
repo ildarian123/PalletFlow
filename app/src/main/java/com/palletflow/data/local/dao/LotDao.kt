@@ -23,4 +23,7 @@ interface LotDao {
 
     @Query("SELECT * FROM lots WHERE lotNumber = :lotNumber LIMIT 1")
     suspend fun getLotByNumber(lotNumber: String): Lot?
+
+    @Query("SELECT * FROM lots WHERE userId = :userId ORDER BY createdAt DESC")
+    fun getLotsByUser(userId: String): Flow<List<Lot>>
 }

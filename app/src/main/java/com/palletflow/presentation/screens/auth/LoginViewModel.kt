@@ -1,10 +1,16 @@
 package com.palletflow.presentation.screens.auth
 
+import android.content.Intent
+import android.util.Log
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.palletflow.data.auth.GoogleAuthManager
+import com.palletflow.data.backup.BackupData
+import com.palletflow.data.backup.GoogleDriveBackupManager
 import com.palletflow.data.datastore.AuthPreferences
-import com.palletflow.data.local.dao.UserDao
+import com.palletflow.data.local.dao.*
 import com.palletflow.data.util.PasswordHasher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -18,13 +24,85 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authPreferences: AuthPreferences,
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val googleAuthManager: GoogleAuthManager,
+    private val googleDriveBackupManager: GoogleDriveBackupManager,
+    private val itemDao: ItemDao,
+    private val lotDao: LotDao,
+    private val transactionDao: TransactionDao,
+    private val stockDao: StockDao
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState = _uiState.asStateFlow()
 
     private val _loginEvent = Channel<Boolean>(Channel.BUFFERED)
     val loginEvent = _loginEvent.receiveAsFlow()
+
+    fun getGoogleSignInIntent(): Intent {
+        Log.d("LoginViewModel", "getGoogleSignInIntent requested")
+        return googleAuthManager.getSignInIntent()
+    }
+
+    fun handleGoogleSignIn(task: com.google.android.gms.tasks.Task<GoogleSignInAccount>) {
+        Log.d("LoginViewModel", "handleGoogleSignIn started")
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val result = googleAuthManager.handleSignInResult(task)
+                if (result.isSuccess) {
+                    val userProfile = result.getOrNull()!!
+                    Log.d("LoginViewModel", "Google Sign-In successful for user: ${userProfile.email}")
+                    
+                    // Save to local DB if doesn't exist
+                    val existingUser = userDao.getUserById(userProfile.id)
+                    if (existingUser == null) {
+                        Log.d("LoginViewModel", "Creating new local profile for Google user")
+                        try {
+                            userDao.insertUser(userProfile)
+                        } catch (e: Exception) {
+                            Log.e("LoginViewModel", "Failed to insert Google user", e)
+                        }
+                    }
+
+                    authPreferences.saveGoogleUser(userProfile.id, userProfile.email)
+                    
+                    // Trigger auto-restore from Google Drive
+                    Log.d("LoginViewModel", "Attempting auto-restore from Google Drive")
+                    val restoreResult = googleDriveBackupManager.restoreFromDrive()
+                    if (restoreResult.isSuccess) {
+                        Log.d("LoginViewModel", "Restore successful, populating database")
+                        val backup = restoreResult.getOrNull()!!
+                        restoreBackupToDatabase(backup)
+                    } else {
+                        Log.d("LoginViewModel", "No backup found or restore failed: ${restoreResult.exceptionOrNull()?.message}")
+                    }
+                    
+                    _uiState.update { it.copy(isLoading = false) }
+                    Log.d("LoginViewModel", "Navigating to Dashboard")
+                    _loginEvent.trySend(true)
+                } else {
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Google Sign-In failed"
+                    Log.e("LoginViewModel", "Google Sign-In failed: $errorMsg")
+                    _uiState.update {
+                        it.copy(isLoading = false, error = errorMsg)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("LoginViewModel", "Critical error during Google Sign-In", e)
+                _uiState.update {
+                    it.copy(isLoading = false, error = "An error occurred: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private suspend fun restoreBackupToDatabase(backup: BackupData) {
+        // Insert all data from backup
+        backup.items.forEach { itemDao.insertItem(it) }
+        backup.lots.forEach { lotDao.insertLot(it) }
+        backup.transactions.forEach { transactionDao.insertTransaction(it) }
+        backup.stocks.forEach { stockDao.insertStock(it) }
+    }
 
     init {
         // Pre-fill email with the last successful login email
@@ -99,5 +177,6 @@ data class LoginUiState(
     val emailError: String? = null,
     val password: String = "",
     val passwordError: String? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val error: String? = null
 )

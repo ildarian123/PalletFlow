@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "620749428176",
+    "project_id": "palletflow-1261f",
+    "storage_bucket": "palletflow-1261f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:620749428176:android:065521de750c0ad271d5d5",
+        "android_client_info": {
+          "package_name": "com.PalletFlow"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "620749428176-587d878gi186vfk5apmdp6tkoadtf39p.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDr6GIlGgjIPi8FPB1A3EnFFt-n5PcJbBs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "620749428176-587d878gi186vfk5apmdp6tkoadtf39p.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

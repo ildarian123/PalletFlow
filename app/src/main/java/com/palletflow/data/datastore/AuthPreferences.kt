@@ -39,11 +39,41 @@ class AuthPreferences(private val context: Context) {
 
     fun getPassword(): String? = sharedPreferences.getString("password", null)
     
-    fun getUserId(): String? = sharedPreferences.getString("user_id", null)
+    fun getUserId(): String? = sharedPreferences.getString("user_id", null) ?: sharedPreferences.getString("google_user_id", null)
     
     fun getLastEmail(): String? = sharedPreferences.getString("last_email", null)
 
+    fun saveGoogleUser(userId: String, email: String) {
+        sharedPreferences.edit()
+            .putString("google_user_id", userId)
+            .putString("user_id", userId)
+            .putString("email", email)
+            .putBoolean("is_google_login", true)
+            .apply()
+    }
+
+    fun getGoogleUserId(): String? {
+        return sharedPreferences.getString("google_user_id", null)
+    }
+
+    fun isGoogleLogin(): Boolean {
+        return sharedPreferences.getBoolean("is_google_login", false)
+    }
+
+    fun saveLastBackupTime(time: Long) {
+        sharedPreferences.edit()
+            .putLong("last_backup_time", time)
+            .apply()
+    }
+
+    fun getLastBackupTime(): Long {
+        return sharedPreferences.getLong("last_backup_time", 0L)
+    }
+
     fun isLoggedIn(): Boolean {
+        if (isGoogleLogin()) {
+            return !getGoogleUserId().isNullOrEmpty()
+        }
         val email = getEmail()
         val password = getPassword()
         val userId = getUserId()
@@ -55,6 +85,8 @@ class AuthPreferences(private val context: Context) {
             .remove("email")
             .remove("password")
             .remove("user_id")
+            .remove("google_user_id")
+            .remove("is_google_login")
             .apply()
     }
 }

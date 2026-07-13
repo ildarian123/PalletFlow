@@ -1,5 +1,8 @@
 package com.palletflow.presentation.navigation
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -8,6 +11,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.palletflow.presentation.screens.auth.LoginScreen
 import com.palletflow.presentation.screens.auth.LoginViewModel
 import com.palletflow.presentation.screens.auth.RegisterScreen
@@ -65,6 +69,21 @@ fun AppNavGraph(navController: NavHostController) {
             val viewModel: LoginViewModel = hiltViewModel()
             val uiState by viewModel.uiState.collectAsState()
 
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val googleLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                android.util.Log.d("AppNavGraph", "Google Sign-In result received: ${result.resultCode}")
+                if (result.resultCode == Activity.RESULT_OK) {
+                    android.widget.Toast.makeText(context, "Sign-In Success! Processing...", android.widget.Toast.LENGTH_SHORT).show()
+                    val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    viewModel.handleGoogleSignIn(task)
+                } else {
+                    android.util.Log.e("AppNavGraph", "Google Sign-In failed with code: ${result.resultCode}")
+                    android.widget.Toast.makeText(context, "Sign-In Failed or Cancelled (Code: ${result.resultCode})", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+
             LaunchedEffect(Unit) {
                 viewModel.loginEvent.collect { success ->
                     if (success) {
@@ -80,6 +99,8 @@ fun AppNavGraph(navController: NavHostController) {
                 emailError = uiState.emailError,
                 passwordValue = uiState.password,
                 passwordError = uiState.passwordError,
+                isLoading = uiState.isLoading,
+                errorMessage = uiState.error,
                 onEmailChange = viewModel::onEmailChange,
                 onPasswordChange = viewModel::onPasswordChange,
                 onLoginClick = {
@@ -88,13 +109,33 @@ fun AppNavGraph(navController: NavHostController) {
                 onSignUpClick = {
                     navController.navigate(Screen.Register.route)
                 },
-                onGoogleClick = { /* Do nothing for now */ }
+                onGoogleClick = {
+                    android.util.Log.d("AppNavGraph", "onGoogleClick triggered")
+                    try {
+                        val intent = viewModel.getGoogleSignInIntent()
+                        android.util.Log.d("AppNavGraph", "Launching Google Sign-In intent")
+                        googleLauncher.launch(intent)
+                    } catch (e: Exception) {
+                        android.util.Log.e("AppNavGraph", "Failed to launch Google Sign-In", e)
+                        // Show a placeholder error for the user
+                    }
+                }
             )
         }
         
         composable(Screen.Register.route) {
             val viewModel: RegisterViewModel = hiltViewModel()
             val state by viewModel.uiState.collectAsState()
+
+            val googleLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartActivityForResult()
+            ) { result ->
+                if (result.resultCode == Activity.RESULT_OK) {
+                    val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    // You might want a handleGoogleSignUp or reuse handleGoogleSignIn if it handles creation
+                    // For now, let's just focus on Login as requested, but I'll add the button if needed.
+                }
+            }
 
             LaunchedEffect(Unit) {
                 viewModel.registrationEvent.collect { success ->
@@ -118,7 +159,7 @@ fun AppNavGraph(navController: NavHostController) {
                 onRegisterClick = {
                     viewModel.register()
                 },
-                onGoogleClick = { /* Do nothing for now */ },
+                onGoogleClick = { /* Handle if needed */ },
                 onSignInClick = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Register.route) { inclusive = true }
