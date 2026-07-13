@@ -11,8 +11,8 @@ import java.util.UUID
 )
 data class Warehouse(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val userId: String,
-    val name: String,
+    val userId: String = "",
+    val name: String = "",
     val address: String? = null,
     val description: String? = null,
     val isActive: Boolean = true,

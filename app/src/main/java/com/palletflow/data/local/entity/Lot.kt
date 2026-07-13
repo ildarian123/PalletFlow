@@ -16,11 +16,11 @@ import java.util.UUID
 )
 data class Lot(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val userId: String,
-    val lotNumber: String,
-    val supplierId: String,
-    val warehouseId: String,
-    val purchasePrice: Double,
+    val userId: String = "",
+    val lotNumber: String = "",
+    val supplierId: String = "",
+    val warehouseId: String = "",
+    val purchasePrice: Double = 0.0,
     val status: LotStatus = LotStatus.DRAFT,
     val notes: String? = null,
     val createdAt: Long = System.currentTimeMillis(),

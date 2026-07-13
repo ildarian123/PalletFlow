@@ -28,8 +28,12 @@ class LotRepositoryImpl @Inject constructor(
 ) : LotRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var isSyncStarted = false
 
     private fun startSync(userId: String) {
+        if (isSyncStarted) return
+        isSyncStarted = true
+
         firestoreSyncManager.observeCollection("lots", userId, Lot::class.java)
             .onEach { lots -> lots.forEach { lotDao.insertLot(it) } }
             .launchIn(repositoryScope)

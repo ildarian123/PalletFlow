@@ -26,8 +26,12 @@ class TransactionRepositoryImpl @Inject constructor(
 ) : TransactionRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var isSyncStarted = false
 
     private fun startSync(userId: String) {
+        if (isSyncStarted) return
+        isSyncStarted = true
+
         firestoreSyncManager.observeCollection("transactions", userId, Transaction::class.java)
             .onEach { transactions ->
                 transactions.forEach { transactionDao.insertTransaction(it) }

@@ -16,9 +16,9 @@ import java.util.UUID
 )
 data class Stock(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val userId: String,
-    val itemId: String,
-    val warehouseId: String,
+    val userId: String = "",
+    val itemId: String = "",
+    val warehouseId: String = "",
     val quantity: Int = 0,
     val updatedAt: Long = System.currentTimeMillis()
 )

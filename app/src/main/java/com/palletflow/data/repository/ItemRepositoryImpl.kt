@@ -22,8 +22,12 @@ class ItemRepositoryImpl @Inject constructor(
 ) : ItemRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var isSyncStarted = false
 
     private fun startSync(userId: String) {
+        if (isSyncStarted) return
+        isSyncStarted = true
+
         firestoreSyncManager.observeCollection("items", userId, Item::class.java)
             .onEach { items ->
                 items.forEach { itemDao.insertItem(it) }

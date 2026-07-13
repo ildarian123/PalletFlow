@@ -19,8 +19,12 @@ class WarehouseRepositoryImpl @Inject constructor(
 ) : WarehouseRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var isSyncStarted = false
 
     private fun startSync(userId: String) {
+        if (isSyncStarted) return
+        isSyncStarted = true
+
         firestoreSyncManager.observeCollection("warehouses", userId, Warehouse::class.java)
             .onEach { warehouses ->
                 warehouses.forEach { warehouseDao.insertWarehouse(it) }
