@@ -21,8 +21,8 @@ import java.util.UUID
 )
 data class LotExpense(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val lotId: String,
-    val name: String,
-    val amount: Double,
+    val lotId: String = "",
+    val name: String = "",
+    val amount: Double = 0.0,
     val createdAt: Long = System.currentTimeMillis()
 )

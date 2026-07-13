@@ -11,8 +11,8 @@ import java.util.UUID
 )
 data class SaleExpense(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val transactionId: String,
-    val name: String,
-    val amount: Double,
+    val transactionId: String = "",
+    val name: String = "",
+    val amount: Double = 0.0,
     val createdAt: Long = System.currentTimeMillis()
 )

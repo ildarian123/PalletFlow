@@ -11,8 +11,8 @@ import java.util.UUID
 )
 data class Supplier(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val userId: String,
-    val name: String,
+    val userId: String = "",
+    val name: String = "",
     val contactPerson: String? = null,
     val email: String? = null,
     val phone: String? = null,

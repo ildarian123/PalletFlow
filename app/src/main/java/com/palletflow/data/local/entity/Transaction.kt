@@ -16,8 +16,8 @@ import java.util.UUID
 )
 data class Transaction(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val userId: String,
-    val type: TransactionType,
+    val userId: String = "",
+    val type: TransactionType = TransactionType.SALE,
     val status: TransactionStatus = TransactionStatus.COMPLETED,
     val itemId: String? = null,
     val lotId: String? = null,

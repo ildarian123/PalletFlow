@@ -21,6 +21,9 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE id = :id AND userId = :userId LIMIT 1")
     suspend fun getItemById(id: String, userId: String): Item?
 
+    @Query("SELECT * FROM items WHERE id = :id AND userId = :userId LIMIT 1")
+    fun getItemByIdSync(id: String, userId: String): Item?
+
     @Query("""
         SELECT * FROM items
         WHERE userId = :userId

@@ -29,9 +29,9 @@ import java.util.UUID
 )
 data class LotItem(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val lotId: String,
-    val itemId: String,
-    val quantity: Int,
+    val lotId: String = "",
+    val itemId: String = "",
+    val quantity: Int = 0,
     val unitPrice: Double? = null,
     val createdAt: Long = System.currentTimeMillis()
 )

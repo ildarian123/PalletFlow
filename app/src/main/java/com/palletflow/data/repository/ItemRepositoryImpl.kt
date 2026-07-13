@@ -1,16 +1,16 @@
 package com.palletflow.data.repository
 
 import android.util.Log
+import com.palletflow.data.firestore.FirebaseStorageManager
 import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.ItemDao
 import com.palletflow.data.local.entity.Item
 import com.palletflow.domain.repository.ItemRepository
+import com.palletflow.util.LocalFileHelper
 import com.palletflow.util.PhotoManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,7 +18,9 @@ import javax.inject.Singleton
 class ItemRepositoryImpl @Inject constructor(
     private val itemDao: ItemDao,
     private val photoManager: PhotoManager,
-    private val firestoreSyncManager: FirestoreSyncManager
+    private val localFileHelper: LocalFileHelper,
+    private val firestoreSyncManager: FirestoreSyncManager,
+    private val storageManager: FirebaseStorageManager
 ) : ItemRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -30,7 +32,25 @@ class ItemRepositoryImpl @Inject constructor(
 
         firestoreSyncManager.observeCollection("items", userId, Item::class.java)
             .onEach { items ->
-                items.forEach { itemDao.insertItem(it) }
+                items.forEach { remoteItem ->
+                    val localItem = itemDao.getItemByIdSync(remoteItem.id, userId)
+                    
+                    // If remote has a photo URL and local doesn't have a valid local path
+                    val itemToSave = if (remoteItem.photoPath != null && remoteItem.photoPath.startsWith("http")) {
+                        if (localItem?.photoPath == null || !File(localItem.photoPath).exists()) {
+                            // Download and save locally
+                            val localPath = localFileHelper.downloadImageToInternalStorage(remoteItem.photoPath)
+                            remoteItem.copy(photoPath = localPath)
+                        } else {
+                            // Keep existing local path
+                            remoteItem.copy(photoPath = localItem.photoPath)
+                        }
+                    } else {
+                        remoteItem
+                    }
+                    
+                    itemDao.insertItem(itemToSave)
+                }
             }
             .launchIn(repositoryScope)
     }
@@ -47,8 +67,23 @@ class ItemRepositoryImpl @Inject constructor(
     override suspend fun createItem(item: Item): Result<Item> {
         return try {
             itemDao.insertItem(item)
-            firestoreSyncManager.syncToCloud("items", item.id, item)
-            Result.success(item)
+            
+            // Handle photo upload if exists and is a local path
+            val itemToSync = if (item.photoPath != null && !item.photoPath.startsWith("http")) {
+                val downloadUrl = storageManager.uploadItemPhoto(item.userId, item.id, item.photoPath)
+                if (downloadUrl != null) {
+                    val updatedItem = item.copy(photoPath = downloadUrl)
+                    itemDao.updateItem(updatedItem) // Update local with URL
+                    updatedItem
+                } else {
+                    item
+                }
+            } else {
+                item
+            }
+
+            firestoreSyncManager.syncToCloud("items", itemToSync.id, itemToSync)
+            Result.success(itemToSync)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -57,8 +92,23 @@ class ItemRepositoryImpl @Inject constructor(
     override suspend fun updateItem(item: Item): Result<Item> {
         return try {
             itemDao.updateItem(item)
-            firestoreSyncManager.syncToCloud("items", item.id, item)
-            Result.success(item)
+
+            // Handle photo upload if exists and is a local path
+            val itemToSync = if (item.photoPath != null && !item.photoPath.startsWith("http")) {
+                val downloadUrl = storageManager.uploadItemPhoto(item.userId, item.id, item.photoPath)
+                if (downloadUrl != null) {
+                    val updatedItem = item.copy(photoPath = downloadUrl)
+                    itemDao.updateItem(updatedItem) // Update local with URL
+                    updatedItem
+                } else {
+                    item
+                }
+            } else {
+                item
+            }
+
+            firestoreSyncManager.syncToCloud("items", itemToSync.id, itemToSync)
+            Result.success(itemToSync)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -69,7 +119,13 @@ class ItemRepositoryImpl @Inject constructor(
             itemDao.deleteItem(item)
             firestoreSyncManager.deleteFromCloud("items", item.id)
             if (deletePhoto) {
-                photoManager.deletePhoto(item.photoPath)
+                if (item.photoPath != null) {
+                    if (item.photoPath.startsWith("http")) {
+                        storageManager.deleteItemPhoto(item.userId, item.id)
+                    } else {
+                        photoManager.deletePhoto(item.photoPath)
+                    }
+                }
             }
             Result.success(Unit)
         } catch (e: Exception) {

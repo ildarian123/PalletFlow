@@ -15,10 +15,10 @@ import java.util.UUID
 )
 data class SaleItem(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
-    val transactionId: String,
-    val itemId: String,
-    val lotId: String,
-    val quantity: Int,
-    val sellingPrice: Double,
+    val transactionId: String = "",
+    val itemId: String = "",
+    val lotId: String = "",
+    val quantity: Int = 0,
+    val sellingPrice: Double = 0.0,
     val createdAt: Long = System.currentTimeMillis()
 )
