@@ -16,7 +16,8 @@ class CreateSaleUseCase @Inject constructor(
     private val lotRepository: LotRepository,
     private val saleItemDao: SaleItemDao,
     private val saleExpenseDao: SaleExpenseDao,
-    private val authPreferences: AuthPreferences
+    private val authPreferences: AuthPreferences,
+    private val firestoreSyncManager: com.palletflow.data.firestore.FirestoreSyncManager
 ) {
     suspend operator fun invoke(
         saleNumber: String,
@@ -72,12 +73,12 @@ class CreateSaleUseCase @Inject constructor(
                 }
 
                 // 1. Revert old stock impact
-                oldItems.forEach { oldItem ->
+                for (oldItem in oldItems) {
                     stockRepository.incrementQuantity(userId, oldItem.itemId, warehouseId, oldItem.quantity)
                 }
 
                 // 2. Apply new stock impact
-                processedItems.forEach { newItem ->
+                for (newItem in processedItems) {
                     stockRepository.decrementQuantity(userId, newItem.itemId, warehouseId, newItem.quantity)
                 }
 
@@ -97,28 +98,37 @@ class CreateSaleUseCase @Inject constructor(
                 transactionRepository.updateTransaction(updatedTransaction)
 
                 // 4. Update items and expenses (Delete old, insert new)
+                val oldSaleItems = saleItemDao.getItemsByTransactionId(saleId)
+                val oldSaleExpenses = saleExpenseDao.getExpensesByTransactionId(saleId)
+                
+                // Cloud Cleanup
+                for (item in oldSaleItems) firestoreSyncManager.deleteFromCloud("sale_items", item.id)
+                for (expense in oldSaleExpenses) firestoreSyncManager.deleteFromCloud("sale_expenses", expense.id)
+
                 saleItemDao.deleteItemsByTransactionId(saleId)
                 for (item in processedItems) {
-                    saleItemDao.upsertSaleItem(
-                        SaleItem(
-                            transactionId = saleId,
-                            itemId = item.itemId,
-                            lotId = item.lotId,
-                            quantity = item.quantity,
-                            sellingPrice = item.sellingPrice
-                        )
+                    val saleItem = SaleItem(
+                        userId = userId,
+                        transactionId = saleId,
+                        itemId = item.itemId,
+                        lotId = item.lotId,
+                        quantity = item.quantity,
+                        sellingPrice = item.sellingPrice
                     )
+                    saleItemDao.upsertSaleItem(saleItem)
+                    firestoreSyncManager.syncToCloud("sale_items", saleItem.id, saleItem)
                 }
 
                 saleExpenseDao.deleteExpensesByTransactionId(saleId)
                 for (expense in expenses) {
-                    saleExpenseDao.upsertSaleExpense(
-                        SaleExpense(
-                            transactionId = saleId,
-                            name = expense.name,
-                            amount = expense.amount
-                        )
+                    val saleExpense = SaleExpense(
+                        userId = userId,
+                        transactionId = saleId,
+                        name = expense.name,
+                        amount = expense.amount
                     )
+                    saleExpenseDao.upsertSaleExpense(saleExpense)
+                    firestoreSyncManager.syncToCloud("sale_expenses", saleExpense.id, saleExpense)
                 }
 
                 Result.success(updatedTransaction)
@@ -160,25 +170,27 @@ class CreateSaleUseCase @Inject constructor(
                 transactionRepository.createTransaction(transaction)
 
                 for (item in processedItems) {
-                    saleItemDao.upsertSaleItem(
-                        SaleItem(
-                            transactionId = transactionId,
-                            itemId = item.itemId,
-                            lotId = item.lotId,
-                            quantity = item.quantity,
-                            sellingPrice = item.sellingPrice
-                        )
+                    val saleItem = SaleItem(
+                        userId = userId,
+                        transactionId = transactionId,
+                        itemId = item.itemId,
+                        lotId = item.lotId,
+                        quantity = item.quantity,
+                        sellingPrice = item.sellingPrice
                     )
+                    saleItemDao.upsertSaleItem(saleItem)
+                    firestoreSyncManager.syncToCloud("sale_items", saleItem.id, saleItem)
                 }
 
                 for (expense in expenses) {
-                    saleExpenseDao.upsertSaleExpense(
-                        SaleExpense(
-                            transactionId = transactionId,
-                            name = expense.name,
-                            amount = expense.amount
-                        )
+                    val saleExpense = SaleExpense(
+                        userId = userId,
+                        transactionId = transactionId,
+                        name = expense.name,
+                        amount = expense.amount
                     )
+                    saleExpenseDao.upsertSaleExpense(saleExpense)
+                    firestoreSyncManager.syncToCloud("sale_expenses", saleExpense.id, saleExpense)
                 }
 
                 Result.success(transaction)

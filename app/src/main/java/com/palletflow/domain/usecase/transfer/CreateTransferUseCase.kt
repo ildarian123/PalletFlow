@@ -12,7 +12,8 @@ class CreateTransferUseCase @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val stockRepository: StockRepository,
     private val saleItemDao: SaleItemDao,
-    private val authPreferences: AuthPreferences
+    private val authPreferences: AuthPreferences,
+    private val firestoreSyncManager: com.palletflow.data.firestore.FirestoreSyncManager
 ) {
     suspend operator fun invoke(
         transferNumber: String,
@@ -78,6 +79,9 @@ class CreateTransferUseCase @Inject constructor(
                         stockRepository.incrementQuantity(userId, oldItem.itemId, oldSourceId, oldItem.quantity)
                         // Take from old destination
                         stockRepository.decrementQuantity(userId, oldItem.itemId, oldDestId, oldItem.quantity)
+                        
+                        // Cloud Cleanup
+                        firestoreSyncManager.deleteFromCloud("sale_items", oldItem.id)
                     }
                 }
                 saleItemDao.deleteItemsByTransactionId(transferId)
@@ -116,15 +120,16 @@ class CreateTransferUseCase @Inject constructor(
                 }
 
                 // Save individual items into SaleItem table (as generic line items)
-                saleItemDao.upsertSaleItem(
-                    SaleItem(
-                        transactionId = finalTransferId,
-                        itemId = item.itemId,
-                        lotId = item.lotId,
-                        quantity = item.quantity,
-                        sellingPrice = 0.0
-                    )
+                val saleItem = SaleItem(
+                    userId = userId,
+                    transactionId = finalTransferId,
+                    itemId = item.itemId,
+                    lotId = item.lotId,
+                    quantity = item.quantity,
+                    sellingPrice = 0.0
                 )
+                saleItemDao.upsertSaleItem(saleItem)
+                firestoreSyncManager.syncToCloud("sale_items", saleItem.id, saleItem)
 
                 totalQuantity += item.quantity
             }

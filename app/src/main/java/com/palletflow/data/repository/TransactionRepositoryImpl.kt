@@ -166,9 +166,9 @@ class TransactionRepositoryImpl @Inject constructor(
 
             // Cloud deletes
             firestoreSyncManager.deleteFromCloud("transactions", id)
-            result.first.forEach { firestoreSyncManager.deleteFromCloud("sale_items", it.id) }
-            result.second.forEach { firestoreSyncManager.deleteFromCloud("sale_expenses", it.id) }
-            result.third.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+            for (item in result.first) firestoreSyncManager.deleteFromCloud("sale_items", item.id)
+            for (expense in result.second) firestoreSyncManager.deleteFromCloud("sale_expenses", expense.id)
+            for (stock in result.third) firestoreSyncManager.syncToCloud("stocks", stock.id, stock)
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -180,17 +180,19 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun deleteTransfer(id: String, userId: String): Result<Unit> {
         Log.d("TransactionRepository", "deleteTransfer started for transfer: $id")
         return try {
-            val stocksToSync = mutableListOf<Stock>()
-            database.withTransaction {
+            val result = database.withTransaction {
                 val transaction = transactionDao.getTransactionById(id, userId)
                     ?: throw Exception("Transfer not found")
+                
+                val itemsToSync = mutableListOf<SaleItem>()
+                val stocksToSync = mutableListOf<Stock>()
                 
                 val sourceId = transaction.warehouseFromId
                 val destId = transaction.warehouseToId
                 
                 if (sourceId != null && destId != null) {
                     val items = saleItemDao.getItemsByTransactionId(id)
-                    items.forEach { item ->
+                    for (item in items) {
                         // Revert: add back to source
                         val existingSourceStock = stockDao.getStock(userId, item.itemId, sourceId)
                         if (existingSourceStock != null) {
@@ -211,15 +213,20 @@ class TransactionRepositoryImpl @Inject constructor(
                         stockDao.decrementQuantity(userId, item.itemId, destId, item.quantity)
                         val currentDestStock = stockDao.getStock(userId, item.itemId, destId)
                         if (currentDestStock != null) stocksToSync.add(currentDestStock)
+                        
+                        itemsToSync.add(item)
                     }
                 }
                 
                 saleItemDao.deleteItemsByTransactionId(id)
                 transactionDao.deleteTransactionById(id, userId)
+                
+                itemsToSync to stocksToSync
             }
 
             firestoreSyncManager.deleteFromCloud("transactions", id)
-            stocksToSync.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+            for (item in result.first) firestoreSyncManager.deleteFromCloud("sale_items", item.id)
+            for (stock in result.second) firestoreSyncManager.syncToCloud("stocks", stock.id, stock)
 
             Result.success(Unit)
         } catch (e: Exception) {

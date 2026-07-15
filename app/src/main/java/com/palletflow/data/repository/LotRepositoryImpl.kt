@@ -125,7 +125,7 @@ class LotRepositoryImpl @Inject constructor(
                 for (le in lotExpenses) lotExpenseDao.upsertExpense(le)
 
                 val stocksToSync = mutableListOf<Stock>()
-                items.forEach { item ->
+                for (item in items) {
                     val stock = Stock(
                         userId = lot.userId,
                         itemId = item.itemId,
@@ -185,7 +185,9 @@ class LotRepositoryImpl @Inject constructor(
         return try {
             val result = database.withTransaction {
                 val oldItems = lotItemDao.getItemsByLotSync(lot.id)
-                oldItems.forEach { oldItem ->
+                val oldExpenses = lotExpenseDao.getExpensesByLotSync(lot.id)
+                
+                for (oldItem in oldItems) {
                     stockDao.decrementQuantity(lot.userId, oldItem.itemId, lot.warehouseId, oldItem.quantity)
                 }
 
@@ -204,7 +206,7 @@ class LotRepositoryImpl @Inject constructor(
                 for (li in lotItems) lotItemDao.upsertLotItem(li)
                 
                 val stocksToSync = mutableListOf<Stock>()
-                lotItems.forEach { lotItem ->
+                for (lotItem in lotItems) {
                     val existingStock = stockDao.getStock(lot.userId, lotItem.itemId, lot.warehouseId)
                     if (existingStock != null) {
                         stockDao.incrementQuantity(lot.userId, lotItem.itemId, lot.warehouseId, lotItem.quantity)
@@ -254,9 +256,21 @@ class LotRepositoryImpl @Inject constructor(
                     newTransaction
                 }
                 
-                FirestoreLotSyncData(lotItems, lotExpenses, finalTransaction, stocksToSync)
+                FirestoreLotSyncData(
+                    lotItems = lotItems,
+                    lotExpenses = lotExpenses,
+                    transaction = finalTransaction,
+                    stocks = stocksToSync,
+                    deletedLotItems = oldItems,
+                    deletedLotExpenses = oldExpenses
+                )
             }
             
+            // Cloud Cleanup: Delete old records
+            for (item in result.deletedLotItems) firestoreSyncManager.deleteFromCloud("lot_items", item.id)
+            for (expense in result.deletedLotExpenses) firestoreSyncManager.deleteFromCloud("lot_expenses", expense.id)
+
+            // Cloud Sync: Upload new/updated records
             firestoreSyncManager.syncToCloud("lots", lot.id, lot)
             for (item in result.lotItems) firestoreSyncManager.syncToCloud("lot_items", item.id, item)
             for (expense in result.lotExpenses) firestoreSyncManager.syncToCloud("lot_expenses", expense.id, expense)
@@ -279,7 +293,7 @@ class LotRepositoryImpl @Inject constructor(
                 val transaction = transactionDao.getTransactionByLotId(lotId)
                 
                 val stocksToSync = mutableListOf<Stock>()
-                items.forEach { item ->
+                for (item in items) {
                     stockDao.decrementQuantity(userId, item.itemId, lot.warehouseId, item.quantity)
                     val currentStock = stockDao.getStock(userId, item.itemId, lot.warehouseId)
                     if (currentStock != null) stocksToSync.add(currentStock)
@@ -314,5 +328,7 @@ data class FirestoreLotSyncData(
     val lotItems: List<LotItem>,
     val lotExpenses: List<LotExpense>,
     val transaction: Transaction,
-    val stocks: List<Stock>
+    val stocks: List<Stock>,
+    val deletedLotItems: List<LotItem> = emptyList(),
+    val deletedLotExpenses: List<LotExpense> = emptyList()
 )
