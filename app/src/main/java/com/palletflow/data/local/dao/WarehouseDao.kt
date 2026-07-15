@@ -15,8 +15,8 @@ interface WarehouseDao {
     @Query("SELECT * FROM warehouses WHERE id = :id AND userId = :userId LIMIT 1")
     suspend fun getWarehouseById(id: String, userId: String): Warehouse?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertWarehouse(warehouse: Warehouse)
+    @Upsert
+    suspend fun upsertWarehouse(warehouse: Warehouse)
 
     @Update
     suspend fun updateWarehouse(warehouse: Warehouse)

@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TransactionDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTransaction(transaction: Transaction)
+    @Upsert
+    suspend fun upsertTransaction(transaction: Transaction)
 
     @Update
     suspend fun updateTransaction(transaction: Transaction)

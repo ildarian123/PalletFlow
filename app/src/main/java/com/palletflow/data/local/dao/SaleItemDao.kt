@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SaleItemDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSaleItem(saleItem: SaleItem)
+    @Upsert
+    suspend fun upsertSaleItem(saleItem: SaleItem)
 
     @Query("SELECT * FROM sale_items WHERE transactionId = :transactionId")
     suspend fun getItemsByTransactionId(transactionId: String): List<SaleItem>
@@ -23,6 +23,13 @@ interface SaleItemDao {
 
     @Query("SELECT * FROM sale_items")
     fun getAllSaleItemsFlow(): Flow<List<SaleItem>>
+
+    @Query("""
+        SELECT si.* FROM sale_items si
+        INNER JOIN transactions t ON si.transactionId = t.id
+        WHERE t.userId = :userId
+    """)
+    fun getSaleItemsByUser(userId: String): Flow<List<SaleItem>>
 
     @Query("""
         SELECT si.* FROM sale_items si

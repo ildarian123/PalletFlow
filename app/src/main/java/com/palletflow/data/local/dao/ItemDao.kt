@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ItemDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertItem(item: Item)
+    @Upsert
+    suspend fun upsertItem(item: Item)
 
     @Update
     suspend fun updateItem(item: Item)

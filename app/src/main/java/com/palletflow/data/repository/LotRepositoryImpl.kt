@@ -35,15 +35,33 @@ class LotRepositoryImpl @Inject constructor(
         isSyncStarted = true
 
         firestoreSyncManager.observeCollection("lots", userId, Lot::class.java)
-            .onEach { lots -> lots.forEach { lotDao.insertLot(it) } }
+            .onEach { lots -> 
+                try {
+                    lots.forEach { lotDao.upsertLot(it) }
+                } catch (e: Exception) {
+                    Log.e("LotRepository", "Failed to sync lots", e)
+                }
+            }
             .launchIn(repositoryScope)
         
         firestoreSyncManager.observeCollection("lot_items", userId, LotItem::class.java)
-            .onEach { items -> items.forEach { lotItemDao.insertLotItem(it) } }
+            .onEach { items -> 
+                try {
+                    items.forEach { lotItemDao.upsertLotItem(it) }
+                } catch (e: Exception) {
+                    Log.e("LotRepository", "Failed to sync lot items", e)
+                }
+            }
             .launchIn(repositoryScope)
 
         firestoreSyncManager.observeCollection("lot_expenses", userId, LotExpense::class.java)
-            .onEach { expenses -> expenses.forEach { lotExpenseDao.insertExpense(it) } }
+            .onEach { expenses -> 
+                try {
+                    expenses.forEach { lotExpenseDao.upsertExpense(it) }
+                } catch (e: Exception) {
+                    Log.e("LotRepository", "Failed to sync lot expenses", e)
+                }
+            }
             .launchIn(repositoryScope)
     }
 
@@ -53,11 +71,14 @@ class LotRepositoryImpl @Inject constructor(
     }
 
     override suspend fun receiveNewLot(lot: Lot, items: List<LotItem>) {
-        lotDao.insertLot(lot)
-        items.forEach { lotItemDao.insertLotItem(it) }
+        lotDao.upsertLot(lot)
+        val processedItems = items.map { it.copy(userId = lot.userId) }
+        for (item in processedItems) {
+            lotItemDao.upsertLotItem(item)
+            firestoreSyncManager.syncToCloud("lot_items", item.id, item)
+        }
         
         firestoreSyncManager.syncToCloud("lots", lot.id, lot)
-        items.forEach { firestoreSyncManager.syncToCloud("lot_items", it.id, it) }
     }
 
     override fun getLotDetail(lotId: String): Flow<Lot?> = lotDao.getLotById(lotId)
@@ -80,26 +101,28 @@ class LotRepositoryImpl @Inject constructor(
                     throw Exception("Lot number already exists")
                 }
 
-                lotDao.insertLot(lot)
+                lotDao.upsertLot(lot)
 
                 val lotItems = items.map { item ->
                     LotItem(
+                        userId = lot.userId,
                         lotId = lot.id,
                         itemId = item.itemId,
                         quantity = item.quantity,
                         unitPrice = item.unitPrice
                     )
                 }
-                lotItems.forEach { lotItemDao.insertLotItem(it) }
+                for (li in lotItems) lotItemDao.upsertLotItem(li)
 
                 val lotExpenses = expenses.map { expense ->
                     LotExpense(
+                        userId = lot.userId,
                         lotId = lot.id,
                         name = expense.name,
                         amount = expense.amount
                     )
                 }
-                lotExpenses.forEach { lotExpenseDao.insertExpense(it) }
+                for (le in lotExpenses) lotExpenseDao.upsertExpense(le)
 
                 val stocksToSync = mutableListOf<Stock>()
                 items.forEach { item ->
@@ -114,7 +137,7 @@ class LotRepositoryImpl @Inject constructor(
                         stockDao.incrementQuantity(lot.userId, item.itemId, lot.warehouseId, item.quantity)
                         stocksToSync.add(existingStock.copy(quantity = existingStock.quantity + item.quantity))
                     } else {
-                        stockDao.insertStock(stock)
+                        stockDao.upsertStock(stock)
                         stocksToSync.add(stock)
                     }
                 }
@@ -132,16 +155,16 @@ class LotRepositoryImpl @Inject constructor(
                     warehouseToId = lot.warehouseId,
                     notes = "Lot ${lot.lotNumber} received"
                 )
-                transactionDao.insertTransaction(transaction)
+                transactionDao.upsertTransaction(transaction)
                 
                 FirestoreLotSyncData(lotItems, lotExpenses, transaction, stocksToSync)
             }
 
             firestoreSyncManager.syncToCloud("lots", lot.id, lot)
-            result.lotItems.forEach { firestoreSyncManager.syncToCloud("lot_items", it.id, it) }
-            result.lotExpenses.forEach { firestoreSyncManager.syncToCloud("lot_expenses", it.id, it) }
+            for (item in result.lotItems) firestoreSyncManager.syncToCloud("lot_items", item.id, item)
+            for (expense in result.lotExpenses) firestoreSyncManager.syncToCloud("lot_expenses", expense.id, expense)
             firestoreSyncManager.syncToCloud("transactions", result.transaction.id, result.transaction)
-            result.stocks.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+            for (stock in result.stocks) firestoreSyncManager.syncToCloud("stocks", stock.id, stock)
 
             Result.success(lot)
         } catch (e: Exception) {
@@ -166,18 +189,19 @@ class LotRepositoryImpl @Inject constructor(
                     stockDao.decrementQuantity(lot.userId, oldItem.itemId, lot.warehouseId, oldItem.quantity)
                 }
 
-                lotDao.insertLot(lot)
+                lotDao.upsertLot(lot)
                 lotItemDao.deleteItemsByLot(lot.id)
                 
                 val lotItems = items.map { item ->
                     LotItem(
+                        userId = lot.userId,
                         lotId = lot.id,
                         itemId = item.itemId,
                         quantity = item.quantity,
                         unitPrice = item.unitPrice
                     )
                 }
-                lotItems.forEach { lotItemDao.insertLotItem(it) }
+                for (li in lotItems) lotItemDao.upsertLotItem(li)
                 
                 val stocksToSync = mutableListOf<Stock>()
                 lotItems.forEach { lotItem ->
@@ -192,16 +216,17 @@ class LotRepositoryImpl @Inject constructor(
                             warehouseId = lot.warehouseId,
                             quantity = lotItem.quantity
                         )
-                        stockDao.insertStock(newStock)
+                        stockDao.upsertStock(newStock)
                         stocksToSync.add(newStock)
                     }
                 }
 
                 lotExpenseDao.deleteExpensesByLot(lot.id)
-                val lotExpenses = expenses.map { expense ->
-                    val lotExpense = LotExpense(lotId = lot.id, name = expense.name, amount = expense.amount)
-                    lotExpenseDao.insertExpense(lotExpense)
-                    lotExpense
+                val lotExpenses = mutableListOf<LotExpense>()
+                for (expense in expenses) {
+                    val lotExpense = LotExpense(userId = lot.userId, lotId = lot.id, name = expense.name, amount = expense.amount)
+                    lotExpenseDao.upsertExpense(lotExpense)
+                    lotExpenses.add(lotExpense)
                 }
                 
                 val existingTransaction = transactionDao.getTransactionByLotId(lot.id)
@@ -225,7 +250,7 @@ class LotRepositoryImpl @Inject constructor(
                         quantity = items.sumOf { it.quantity }, amount = totalAmount,
                         warehouseToId = lot.warehouseId, notes = "Lot ${lot.lotNumber} received"
                     )
-                    transactionDao.insertTransaction(newTransaction)
+                    transactionDao.upsertTransaction(newTransaction)
                     newTransaction
                 }
                 
@@ -233,10 +258,10 @@ class LotRepositoryImpl @Inject constructor(
             }
             
             firestoreSyncManager.syncToCloud("lots", lot.id, lot)
-            result.lotItems.forEach { firestoreSyncManager.syncToCloud("lot_items", it.id, it) }
-            result.lotExpenses.forEach { firestoreSyncManager.syncToCloud("lot_expenses", it.id, it) }
+            for (item in result.lotItems) firestoreSyncManager.syncToCloud("lot_items", item.id, item)
+            for (expense in result.lotExpenses) firestoreSyncManager.syncToCloud("lot_expenses", expense.id, expense)
             firestoreSyncManager.syncToCloud("transactions", result.transaction.id, result.transaction)
-            result.stocks.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+            for (stock in result.stocks) firestoreSyncManager.syncToCloud("stocks", stock.id, stock)
 
             Result.success(lot)
         } catch (e: Exception) {
@@ -269,10 +294,10 @@ class LotRepositoryImpl @Inject constructor(
             }
             
             firestoreSyncManager.deleteFromCloud("lots", lotId)
-            result.lotItems.forEach { firestoreSyncManager.deleteFromCloud("lot_items", it.id) }
-            result.lotExpenses.forEach { firestoreSyncManager.deleteFromCloud("lot_expenses", it.id) }
+            for (item in result.lotItems) firestoreSyncManager.deleteFromCloud("lot_items", item.id)
+            for (expense in result.lotExpenses) firestoreSyncManager.deleteFromCloud("lot_expenses", expense.id)
             firestoreSyncManager.deleteFromCloud("transactions", result.transaction.id)
-            result.stocks.forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
+            for (stock in result.stocks) firestoreSyncManager.syncToCloud("stocks", stock.id, stock)
             
             Result.success(Unit)
         } catch (e: Exception) {

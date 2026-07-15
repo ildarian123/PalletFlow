@@ -15,8 +15,8 @@ interface LotDao {
     @Query("SELECT * FROM lots WHERE id = :lotId LIMIT 1")
     suspend fun getLotByIdSync(lotId: String): Lot?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertLot(lot: Lot)
+    @Upsert
+    suspend fun upsertLot(lot: Lot)
 
     @Delete
     suspend fun deleteLot(lot: Lot)

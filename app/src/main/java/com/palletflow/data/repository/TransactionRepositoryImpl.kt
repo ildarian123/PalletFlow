@@ -34,19 +34,31 @@ class TransactionRepositoryImpl @Inject constructor(
 
         firestoreSyncManager.observeCollection("transactions", userId, Transaction::class.java)
             .onEach { transactions ->
-                transactions.forEach { transactionDao.insertTransaction(it) }
+                try {
+                    transactions.forEach { transactionDao.upsertTransaction(it) }
+                } catch (e: Exception) {
+                    Log.e("TransactionRepository", "Failed to sync transactions", e)
+                }
             }
             .launchIn(repositoryScope)
 
         firestoreSyncManager.observeCollection("sale_items", userId, SaleItem::class.java)
             .onEach { items ->
-                items.forEach { saleItemDao.insertSaleItem(it) }
+                try {
+                    items.forEach { saleItemDao.upsertSaleItem(it) }
+                } catch (e: Exception) {
+                    Log.e("TransactionRepository", "Failed to sync sale items", e)
+                }
             }
             .launchIn(repositoryScope)
 
         firestoreSyncManager.observeCollection("sale_expenses", userId, SaleExpense::class.java)
             .onEach { expenses ->
-                expenses.forEach { saleExpenseDao.insertSaleExpense(it) }
+                try {
+                    expenses.forEach { saleExpenseDao.upsertSaleExpense(it) }
+                } catch (e: Exception) {
+                    Log.e("TransactionRepository", "Failed to sync sale expenses", e)
+                }
             }
             .launchIn(repositoryScope)
     }
@@ -78,7 +90,7 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun createTransaction(transaction: Transaction): Result<Transaction> {
         return try {
-            transactionDao.insertTransaction(transaction)
+            transactionDao.upsertTransaction(transaction)
             firestoreSyncManager.syncToCloud("transactions", transaction.id, transaction)
             Result.success(transaction)
         } catch (e: Exception) {
@@ -135,7 +147,7 @@ class TransactionRepositoryImpl @Inject constructor(
                                 warehouseId = warehouseId,
                                 quantity = item.quantity
                             )
-                            stockDao.insertStock(newStock)
+                            stockDao.upsertStock(newStock)
                             stocksToSync.add(newStock)
                         }
                         itemsToSync.add(item)
@@ -191,7 +203,7 @@ class TransactionRepositoryImpl @Inject constructor(
                                 warehouseId = sourceId,
                                 quantity = item.quantity
                             )
-                            stockDao.insertStock(newStock)
+                            stockDao.upsertStock(newStock)
                             stocksToSync.add(newStock)
                         }
                         

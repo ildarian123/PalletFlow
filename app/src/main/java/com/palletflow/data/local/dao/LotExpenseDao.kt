@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface LotExpenseDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertExpense(expense: LotExpense)
+    @Upsert
+    suspend fun upsertExpense(expense: LotExpense)
 
     @Update
     suspend fun updateExpense(expense: LotExpense)
@@ -36,6 +36,13 @@ interface LotExpenseDao {
 
     @Query("SELECT * FROM lot_expenses WHERE lotId = :lotId")
     suspend fun getExpensesByLotSync(lotId: String): List<LotExpense>
+
+    @Query("""
+        SELECT le.* FROM lot_expenses le
+        INNER JOIN lots l ON le.lotId = l.id
+        WHERE l.userId = :userId
+    """)
+    fun getLotExpensesByUser(userId: String): Flow<List<LotExpense>>
 
     @Query("SELECT * FROM lot_expenses")
     fun getAllExpenses(): Flow<List<LotExpense>>

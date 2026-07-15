@@ -2,6 +2,7 @@ package com.palletflow.presentation.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.palletflow.data.backup.BackupData
 import com.palletflow.data.backup.GoogleDriveBackupManager
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.firestore.FirestoreSyncManager
@@ -51,12 +52,21 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 // 1. Google Drive Backup
-                val items = itemDao.getAllItemsByUser(userId).first()
-                val lots = lotDao.getLotsByUser(userId).first()
-                val transactions = transactionDao.getAllTransactions(userId).first()
-                val stocks = stockDao.getStocksByUser(userId).first()
+                val backupData = BackupData(
+                    items = itemDao.getAllItemsByUser(userId).first(),
+                    warehouses = warehouseDao.getAllWarehousesByUser(userId).first(),
+                    suppliers = supplierDao.getAllSuppliersByUser(userId).first(),
+                    lots = lotDao.getLotsByUser(userId).first(),
+                    lotItems = lotItemDao.getLotItemsByUser(userId).first(),
+                    lotExpenses = lotExpenseDao.getLotExpensesByUser(userId).first(),
+                    transactions = transactionDao.getAllTransactions(userId).first(),
+                    stocks = stockDao.getStocksByUser(userId).first(),
+                    saleItems = saleItemDao.getSaleItemsByUser(userId).first(),
+                    saleExpenses = saleExpenseDao.getSaleExpensesByUser(userId).first(),
+                    timestamp = System.currentTimeMillis()
+                )
 
-                val result = googleDriveBackupManager.backupToDrive(items, lots, transactions, stocks)
+                val result = googleDriveBackupManager.backupToDrive(backupData)
                 
                 // 2. Firestore Sync (Full Push)
                 syncAllToFirestore(userId)
@@ -79,16 +89,16 @@ class SettingsViewModel @Inject constructor(
     }
 
     private suspend fun syncAllToFirestore(userId: String) {
-        itemDao.getAllItemsByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("items", it.id, it) }
-        warehouseDao.getAllWarehousesByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("warehouses", it.id, it) }
-        supplierDao.getAllSuppliersByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("suppliers", it.id, it) }
-        lotDao.getLotsByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("lots", it.id, it) }
-        lotItemDao.getAllLotItems().first().forEach { firestoreSyncManager.syncToCloud("lot_items", it.id, it) }
-        lotExpenseDao.getAllExpenses().first().forEach { firestoreSyncManager.syncToCloud("lot_expenses", it.id, it) }
-        transactionDao.getAllTransactions(userId).first().forEach { firestoreSyncManager.syncToCloud("transactions", it.id, it) }
-        stockDao.getStocksByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
-        saleItemDao.getAllSaleItems().forEach { firestoreSyncManager.syncToCloud("sale_items", it.id, it) }
-        saleExpenseDao.getAllSaleExpenses().forEach { firestoreSyncManager.syncToCloud("sale_expenses", it.id, it) }
+        for (item in itemDao.getAllItemsByUser(userId).first()) firestoreSyncManager.syncToCloud("items", item.id, item)
+        for (warehouse in warehouseDao.getAllWarehousesByUser(userId).first()) firestoreSyncManager.syncToCloud("warehouses", warehouse.id, warehouse)
+        for (supplier in supplierDao.getAllSuppliersByUser(userId).first()) firestoreSyncManager.syncToCloud("suppliers", supplier.id, supplier)
+        for (lot in lotDao.getLotsByUser(userId).first()) firestoreSyncManager.syncToCloud("lots", lot.id, lot)
+        for (lotItem in lotItemDao.getLotItemsByUser(userId).first()) firestoreSyncManager.syncToCloud("lot_items", lotItem.id, lotItem)
+        for (lotExpense in lotExpenseDao.getLotExpensesByUser(userId).first()) firestoreSyncManager.syncToCloud("lot_expenses", lotExpense.id, lotExpense)
+        for (transaction in transactionDao.getAllTransactions(userId).first()) firestoreSyncManager.syncToCloud("transactions", transaction.id, transaction)
+        for (stock in stockDao.getStocksByUser(userId).first()) firestoreSyncManager.syncToCloud("stocks", stock.id, stock)
+        for (saleItem in saleItemDao.getSaleItemsByUser(userId).first()) firestoreSyncManager.syncToCloud("sale_items", saleItem.id, saleItem)
+        for (saleExpense in saleExpenseDao.getSaleExpensesByUser(userId).first()) firestoreSyncManager.syncToCloud("sale_expenses", saleExpense.id, saleExpense)
     }
 
     fun manualRestore() {
@@ -100,16 +110,16 @@ class SettingsViewModel @Inject constructor(
                 val firestoreResult = firestoreSyncManager.fetchAllUserData(userId)
                 if (firestoreResult.isSuccess) {
                     firestoreResult.getOrNull()?.let { data ->
-                        data.items.forEach { itemDao.insertItem(it) }
-                        data.warehouses.forEach { warehouseDao.insertWarehouse(it) }
-                        data.suppliers.forEach { supplierDao.insertSupplier(it) }
-                        data.lots.forEach { lotDao.insertLot(it) }
-                        data.lotItems.forEach { lotItemDao.insertLotItem(it) }
-                        data.lotExpenses.forEach { lotExpenseDao.insertExpense(it) }
-                        data.transactions.forEach { transactionDao.insertTransaction(it) }
-                        data.stocks.forEach { stockDao.insertStock(it) }
-                        data.saleItems.forEach { saleItemDao.insertSaleItem(it) }
-                        data.saleExpenses.forEach { saleExpenseDao.insertSaleExpense(it) }
+                        for (item in data.items) itemDao.upsertItem(item)
+                        for (warehouse in data.warehouses) warehouseDao.upsertWarehouse(warehouse)
+                        for (supplier in data.suppliers) supplierDao.upsertSupplier(supplier)
+                        for (lot in data.lots) lotDao.upsertLot(lot)
+                        for (lotItem in data.lotItems) lotItemDao.upsertLotItem(lotItem)
+                        for (lotExpense in data.lotExpenses) lotExpenseDao.upsertExpense(lotExpense)
+                        for (transaction in data.transactions) transactionDao.upsertTransaction(transaction)
+                        for (stock in data.stocks) stockDao.upsertStock(stock)
+                        for (saleItem in data.saleItems) saleItemDao.upsertSaleItem(saleItem)
+                        for (saleExpense in data.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
                         
                         _uiState.update { it.copy(isLoading = false, message = "Cloud Restore successful!") }
                         return@launch
@@ -120,10 +130,16 @@ class SettingsViewModel @Inject constructor(
                 val result = googleDriveBackupManager.restoreFromDrive()
                 if (result.isSuccess) {
                     val backup = result.getOrNull()!!
-                    backup.items.forEach { itemDao.insertItem(it) }
-                    backup.lots.forEach { lotDao.insertLot(it) }
-                    backup.transactions.forEach { transactionDao.insertTransaction(it) }
-                    backup.stocks.forEach { stockDao.insertStock(it) }
+                    for (item in backup.items) itemDao.upsertItem(item)
+                    for (warehouse in backup.warehouses) warehouseDao.upsertWarehouse(warehouse)
+                    for (supplier in backup.suppliers) supplierDao.upsertSupplier(supplier)
+                    for (lot in backup.lots) lotDao.upsertLot(lot)
+                    for (lotItem in backup.lotItems) lotItemDao.upsertLotItem(lotItem)
+                    for (lotExpense in backup.lotExpenses) lotExpenseDao.upsertExpense(lotExpense)
+                    for (transaction in backup.transactions) transactionDao.upsertTransaction(transaction)
+                    for (stock in backup.stocks) stockDao.upsertStock(stock)
+                    for (saleItem in backup.saleItems) saleItemDao.upsertSaleItem(saleItem)
+                    for (saleExpense in backup.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
                     
                     _uiState.update { it.copy(isLoading = false, message = "Restore from Drive successful!") }
                 } else {

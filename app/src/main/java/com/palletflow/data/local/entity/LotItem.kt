@@ -24,11 +24,13 @@ import java.util.UUID
     ],
     indices = [
         Index("lotId"),
-        Index("itemId")
+        Index("itemId"),
+        Index("userId")
     ]
 )
 data class LotItem(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val userId: String = "",
     val lotId: String = "",
     val itemId: String = "",
     val quantity: Int = 0,

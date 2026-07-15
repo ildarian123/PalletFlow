@@ -8,7 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.palletflow.presentation.common.permissions.CameraPermissionHandler
 import com.palletflow.presentation.common.permissions.GalleryPermissionHandler
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +28,20 @@ fun PhotoPickerSheet(
     onCameraClick: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
+    
+    // Use a state to handle the action after dismissal to avoid race conditions with system permissions
+    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    LaunchedEffect(pendingAction) {
+        pendingAction?.let { action ->
+            // Small delay to allow permission dialog/system UI to settle
+            delay(100)
+            sheetState.hide()
+            onDismiss()
+            action()
+            pendingAction = null
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -35,14 +50,12 @@ fun PhotoPickerSheet(
     ) {
         CameraPermissionHandler(
             onPermissionGranted = {
-                onCameraClick()
-                onDismiss()
+                pendingAction = onCameraClick
             }
         ) { requestCameraPermission ->
             GalleryPermissionHandler(
                 onPermissionGranted = {
-                    onGalleryClick()
-                    onDismiss()
+                    pendingAction = onGalleryClick
                 }
             ) { requestGalleryPermission ->
                 Column(

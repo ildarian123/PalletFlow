@@ -98,8 +98,8 @@ class CreateSaleUseCase @Inject constructor(
 
                 // 4. Update items and expenses (Delete old, insert new)
                 saleItemDao.deleteItemsByTransactionId(saleId)
-                processedItems.forEach { item ->
-                    saleItemDao.insertSaleItem(
+                for (item in processedItems) {
+                    saleItemDao.upsertSaleItem(
                         SaleItem(
                             transactionId = saleId,
                             itemId = item.itemId,
@@ -111,8 +111,8 @@ class CreateSaleUseCase @Inject constructor(
                 }
 
                 saleExpenseDao.deleteExpensesByTransactionId(saleId)
-                expenses.forEach { expense ->
-                    saleExpenseDao.insertSaleExpense(
+                for (expense in expenses) {
+                    saleExpenseDao.upsertSaleExpense(
                         SaleExpense(
                             transactionId = saleId,
                             name = expense.name,
@@ -159,8 +159,8 @@ class CreateSaleUseCase @Inject constructor(
 
                 transactionRepository.createTransaction(transaction)
 
-                processedItems.forEach { item ->
-                    saleItemDao.insertSaleItem(
+                for (item in processedItems) {
+                    saleItemDao.upsertSaleItem(
                         SaleItem(
                             transactionId = transactionId,
                             itemId = item.itemId,
@@ -171,8 +171,8 @@ class CreateSaleUseCase @Inject constructor(
                     )
                 }
 
-                expenses.forEach { expense ->
-                    saleExpenseDao.insertSaleExpense(
+                for (expense in expenses) {
+                    saleExpenseDao.upsertSaleExpense(
                         SaleExpense(
                             transactionId = transactionId,
                             name = expense.name,

@@ -9,8 +9,8 @@ interface LotItemDao {
     @Query("SELECT * FROM lot_items")
     fun getAllLotItems(): Flow<List<LotItem>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertLotItem(lotItem: LotItem)
+    @Upsert
+    suspend fun upsertLotItem(lotItem: LotItem)
 
     @Delete
     suspend fun deleteLotItem(lotItem: LotItem)
@@ -23,6 +23,13 @@ interface LotItemDao {
 
     @Query("DELETE FROM lot_items WHERE lotId = :lotId")
     suspend fun deleteItemsByLot(lotId: String)
+
+    @Query("""
+        SELECT li.* FROM lot_items li
+        INNER JOIN lots l ON li.lotId = l.id
+        WHERE l.userId = :userId
+    """)
+    fun getLotItemsByUser(userId: String): Flow<List<LotItem>>
 
     @Query("SELECT lotId FROM lot_items WHERE itemId = :itemId LIMIT 1")
     suspend fun getLotIdForItem(itemId: String): String?

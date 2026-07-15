@@ -6,7 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.firestore.FirestoreSyncManager
-import com.palletflow.data.local.dao.*
+import com.palletflow.data.local.database.AppDatabase
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
@@ -14,16 +14,7 @@ class SyncWorker(
     context: Context,
     params: WorkerParameters,
     private val firestoreSyncManager: FirestoreSyncManager,
-    private val itemDao: ItemDao,
-    private val warehouseDao: WarehouseDao,
-    private val supplierDao: SupplierDao,
-    private val lotDao: LotDao,
-    private val lotItemDao: LotItemDao,
-    private val lotExpenseDao: LotExpenseDao,
-    private val transactionDao: TransactionDao,
-    private val stockDao: StockDao,
-    private val saleItemDao: SaleItemDao,
-    private val saleExpenseDao: SaleExpenseDao,
+    private val database: AppDatabase,
     private val authPreferences: AuthPreferences
 ) : CoroutineWorker(context, params) {
 
@@ -41,36 +32,36 @@ class SyncWorker(
             
             Result.success()
         } catch (e: Exception) {
-            Log.e("SyncWorker", "Sync failed", e)
+            Log.e("SyncWorker", "Full sync failed", e)
             Result.retry()
         }
     }
 
     private suspend fun syncLocalToCloud(userId: String) {
-        itemDao.getAllItemsByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("items", it.id, it) }
-        warehouseDao.getAllWarehousesByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("warehouses", it.id, it) }
-        supplierDao.getAllSuppliersByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("suppliers", it.id, it) }
-        lotDao.getLotsByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("lots", it.id, it) }
-        lotItemDao.getAllLotItems().first().forEach { firestoreSyncManager.syncToCloud("lot_items", it.id, it) }
-        lotExpenseDao.getAllExpenses().first().forEach { firestoreSyncManager.syncToCloud("lot_expenses", it.id, it) }
-        transactionDao.getAllTransactions(userId).first().forEach { firestoreSyncManager.syncToCloud("transactions", it.id, it) }
-        stockDao.getStocksByUser(userId).first().forEach { firestoreSyncManager.syncToCloud("stocks", it.id, it) }
-        saleItemDao.getAllSaleItems().forEach { firestoreSyncManager.syncToCloud("sale_items", it.id, it) }
-        saleExpenseDao.getAllSaleExpenses().forEach { firestoreSyncManager.syncToCloud("sale_expenses", it.id, it) }
+        for (item in database.itemDao().getAllItemsByUser(userId).first()) firestoreSyncManager.syncToCloud("items", item.id, item)
+        for (warehouse in database.warehouseDao().getAllWarehousesByUser(userId).first()) firestoreSyncManager.syncToCloud("warehouses", warehouse.id, warehouse)
+        for (supplier in database.supplierDao().getAllSuppliersByUser(userId).first()) firestoreSyncManager.syncToCloud("suppliers", supplier.id, supplier)
+        for (lot in database.lotDao().getLotsByUser(userId).first()) firestoreSyncManager.syncToCloud("lots", lot.id, lot)
+        for (lotItem in database.lotItemDao().getLotItemsByUser(userId).first()) firestoreSyncManager.syncToCloud("lot_items", lotItem.id, lotItem)
+        for (lotExpense in database.lotExpenseDao().getLotExpensesByUser(userId).first()) firestoreSyncManager.syncToCloud("lot_expenses", lotExpense.id, lotExpense)
+        for (transaction in database.transactionDao().getAllTransactions(userId).first()) firestoreSyncManager.syncToCloud("transactions", transaction.id, transaction)
+        for (stock in database.stockDao().getStocksByUser(userId).first()) firestoreSyncManager.syncToCloud("stocks", stock.id, stock)
+        for (saleItem in database.saleItemDao().getSaleItemsByUser(userId).first()) firestoreSyncManager.syncToCloud("sale_items", saleItem.id, saleItem)
+        for (saleExpense in database.saleExpenseDao().getSaleExpensesByUser(userId).first()) firestoreSyncManager.syncToCloud("sale_expenses", saleExpense.id, saleExpense)
     }
 
     private suspend fun syncCloudToLocal(userId: String) {
         val cloudData = firestoreSyncManager.fetchAllUserData(userId).getOrNull() ?: return
         
-        cloudData.items.forEach { itemDao.insertItem(it) }
-        cloudData.warehouses.forEach { warehouseDao.insertWarehouse(it) }
-        cloudData.suppliers.forEach { supplierDao.insertSupplier(it) }
-        cloudData.lots.forEach { lotDao.insertLot(it) }
-        cloudData.lotItems.forEach { lotItemDao.insertLotItem(it) }
-        cloudData.lotExpenses.forEach { lotExpenseDao.insertExpense(it) }
-        cloudData.transactions.forEach { transactionDao.insertTransaction(it) }
-        cloudData.stocks.forEach { stockDao.insertStock(it) }
-        cloudData.saleItems.forEach { saleItemDao.insertSaleItem(it) }
-        cloudData.saleExpenses.forEach { saleExpenseDao.insertSaleExpense(it) }
+        for (item in cloudData.items) database.itemDao().upsertItem(item)
+        for (warehouse in cloudData.warehouses) database.warehouseDao().upsertWarehouse(warehouse)
+        for (supplier in cloudData.suppliers) database.supplierDao().upsertSupplier(supplier)
+        for (lot in cloudData.lots) database.lotDao().upsertLot(lot)
+        for (lotItem in cloudData.lotItems) database.lotItemDao().upsertLotItem(lotItem)
+        for (lotExpense in cloudData.lotExpenses) database.lotExpenseDao().upsertExpense(lotExpense)
+        for (transaction in cloudData.transactions) database.transactionDao().upsertTransaction(transaction)
+        for (stock in cloudData.stocks) database.stockDao().upsertStock(stock)
+        for (saleItem in cloudData.saleItems) database.saleItemDao().upsertSaleItem(saleItem)
+        for (saleExpense in cloudData.saleExpenses) database.saleExpenseDao().upsertSaleExpense(saleExpense)
     }
 }

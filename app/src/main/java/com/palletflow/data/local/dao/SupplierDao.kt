@@ -9,8 +9,8 @@ interface SupplierDao {
     @Query("SELECT * FROM suppliers WHERE userId = :userId")
     fun getAllSuppliersByUser(userId: String): Flow<List<Supplier>>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSupplier(supplier: Supplier)
+    @Upsert
+    suspend fun upsertSupplier(supplier: Supplier)
 
     @Delete
     suspend fun deleteSupplier(supplier: Supplier)

@@ -116,7 +116,7 @@ class CreateTransferUseCase @Inject constructor(
                 }
 
                 // Save individual items into SaleItem table (as generic line items)
-                saleItemDao.insertSaleItem(
+                saleItemDao.upsertSaleItem(
                     SaleItem(
                         transactionId = finalTransferId,
                         itemId = item.itemId,

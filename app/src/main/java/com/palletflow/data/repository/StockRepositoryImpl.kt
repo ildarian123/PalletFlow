@@ -23,7 +23,7 @@ class StockRepositoryImpl @Inject constructor(
     private fun startSync(userId: String) {
         firestoreSyncManager.observeCollection("stocks", userId, Stock::class.java)
             .onEach { stocks ->
-                stocks.forEach { stockDao.insertStock(it) }
+                stocks.forEach { stockDao.upsertStock(it) }
             }
             .launchIn(repositoryScope)
     }
@@ -72,7 +72,7 @@ class StockRepositoryImpl @Inject constructor(
     override suspend fun createStock(stock: Stock): Result<Unit> {
         return try {
             val sanitizedStock = if (stock.quantity < 0) stock.copy(quantity = 0) else stock
-            stockDao.insertStock(sanitizedStock)
+            stockDao.upsertStock(sanitizedStock)
             firestoreSyncManager.syncToCloud("stocks", sanitizedStock.id, sanitizedStock)
             Result.success(Unit)
         } catch (e: Exception) {

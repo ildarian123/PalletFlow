@@ -47,7 +47,7 @@ fun rememberPermissionState(
         }
     }
 
-    return remember(hasPermission) {
+    return remember(hasPermission, shouldShowRationale) {
         PermissionState(
             hasPermission = hasPermission,
             shouldShowRationale = shouldShowRationale,

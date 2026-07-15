@@ -12,10 +12,7 @@ import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File
 import com.google.gson.Gson
 import com.palletflow.data.datastore.AuthPreferences
-import com.palletflow.data.local.entity.Item
-import com.palletflow.data.local.entity.Lot
-import com.palletflow.data.local.entity.Stock
-import com.palletflow.data.local.entity.Transaction
+import com.palletflow.data.local.entity.*
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -44,21 +41,10 @@ class GoogleDriveBackupManager @Inject constructor(
     }
 
     suspend fun backupToDrive(
-        items: List<Item>,
-        lots: List<Lot>,
-        transactions: List<Transaction>,
-        stocks: List<Stock>
+        backupData: BackupData
     ): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
-                val backupData = BackupData(
-                    items = items,
-                    lots = lots,
-                    transactions = transactions,
-                    stocks = stocks,
-                    timestamp = System.currentTimeMillis()
-                )
-
                 val json = Gson().toJson(backupData)
                 val encrypted = encryptData(json)
 
@@ -135,9 +121,15 @@ class GoogleDriveBackupManager @Inject constructor(
 }
 
 data class BackupData(
-    val items: List<Item>,
-    val lots: List<Lot>,
-    val transactions: List<Transaction>,
-    val stocks: List<Stock>,
-    val timestamp: Long
+    val items: List<Item> = emptyList(),
+    val warehouses: List<Warehouse> = emptyList(),
+    val suppliers: List<Supplier> = emptyList(),
+    val lots: List<Lot> = emptyList(),
+    val lotItems: List<LotItem> = emptyList(),
+    val lotExpenses: List<LotExpense> = emptyList(),
+    val transactions: List<Transaction> = emptyList(),
+    val stocks: List<Stock> = emptyList(),
+    val saleItems: List<SaleItem> = emptyList(),
+    val saleExpenses: List<SaleExpense> = emptyList(),
+    val timestamp: Long = 0L
 )

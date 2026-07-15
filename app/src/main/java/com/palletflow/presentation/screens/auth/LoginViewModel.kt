@@ -118,23 +118,29 @@ class LoginViewModel @Inject constructor(
 
     private suspend fun restoreBackupToDatabase(backup: BackupData) {
         // Insert all data from backup
-        backup.items.forEach { itemDao.insertItem(it) }
-        backup.lots.forEach { lotDao.insertLot(it) }
-        backup.transactions.forEach { transactionDao.insertTransaction(it) }
-        backup.stocks.forEach { stockDao.insertStock(it) }
+        for (item in backup.items) itemDao.upsertItem(item)
+        for (warehouse in backup.warehouses) warehouseDao.upsertWarehouse(warehouse)
+        for (supplier in backup.suppliers) supplierDao.upsertSupplier(supplier)
+        for (lot in backup.lots) lotDao.upsertLot(lot)
+        for (lotItem in backup.lotItems) lotItemDao.upsertLotItem(lotItem)
+        for (lotExpense in backup.lotExpenses) lotExpenseDao.upsertExpense(lotExpense)
+        for (transaction in backup.transactions) transactionDao.upsertTransaction(transaction)
+        for (stock in backup.stocks) stockDao.upsertStock(stock)
+        for (saleItem in backup.saleItems) saleItemDao.upsertSaleItem(saleItem)
+        for (saleExpense in backup.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
     }
 
     private suspend fun restoreFirestoreDataToDatabase(data: FirestoreBackupData) {
-        data.items.forEach { itemDao.insertItem(it) }
-        data.warehouses.forEach { warehouseDao.insertWarehouse(it) }
-        data.suppliers.forEach { supplierDao.insertSupplier(it) }
-        data.lots.forEach { lotDao.insertLot(it) }
-        data.lotItems.forEach { lotItemDao.insertLotItem(it) }
-        data.lotExpenses.forEach { lotExpenseDao.insertExpense(it) }
-        data.transactions.forEach { transactionDao.insertTransaction(it) }
-        data.stocks.forEach { stockDao.insertStock(it) }
-        data.saleItems.forEach { saleItemDao.insertSaleItem(it) }
-        data.saleExpenses.forEach { saleExpenseDao.insertSaleExpense(it) }
+        for (item in data.items) itemDao.upsertItem(item)
+        for (warehouse in data.warehouses) warehouseDao.upsertWarehouse(warehouse)
+        for (supplier in data.suppliers) supplierDao.upsertSupplier(supplier)
+        for (lot in data.lots) lotDao.upsertLot(lot)
+        for (lotItem in data.lotItems) lotItemDao.upsertLotItem(lotItem)
+        for (lotExpense in data.lotExpenses) lotExpenseDao.upsertExpense(lotExpense)
+        for (transaction in data.transactions) transactionDao.upsertTransaction(transaction)
+        for (stock in data.stocks) stockDao.upsertStock(stock)
+        for (saleItem in data.saleItems) saleItemDao.upsertSaleItem(saleItem)
+        for (saleExpense in data.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
     }
 
     init {
@@ -166,6 +172,18 @@ class LoginViewModel @Inject constructor(
             
             if (authenticatedUser != null) {
                 saveCredentials(state.email, hashedPassword, authenticatedUser.id)
+                
+                // Trigger auto-restore from Firestore (Cloud sync) for email user
+                Log.d("LoginViewModel", "Attempting auto-restore from Firestore for email user")
+                val firestoreResult = firestoreSyncManager.fetchAllUserData(authenticatedUser.id)
+                if (firestoreResult.isSuccess) {
+                    val data = firestoreResult.getOrNull()
+                    if (data != null) {
+                        Log.d("LoginViewModel", "Firestore data found, restoring to local DB")
+                        restoreFirestoreDataToDatabase(data)
+                    }
+                }
+
                 _uiState.update { it.copy(isLoading = false) }
                 _loginEvent.trySend(true)
             } else {

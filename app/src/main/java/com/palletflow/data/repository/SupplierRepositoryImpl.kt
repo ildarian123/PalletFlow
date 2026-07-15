@@ -25,7 +25,11 @@ class SupplierRepositoryImpl @Inject constructor(
 
         firestoreSyncManager.observeCollection("suppliers", userId, Supplier::class.java)
             .onEach { suppliers ->
-                suppliers.forEach { supplierDao.insertSupplier(it) }
+                try {
+                    suppliers.forEach { supplierDao.upsertSupplier(it) }
+                } catch (e: Exception) {
+                    Log.e("SupplierRepository", "Failed to sync suppliers", e)
+                }
             }
             .launchIn(repositoryScope)
     }
@@ -37,7 +41,7 @@ class SupplierRepositoryImpl @Inject constructor(
 
     override suspend fun createSupplier(supplier: Supplier): Result<Supplier> {
         return try {
-            supplierDao.insertSupplier(supplier)
+            supplierDao.upsertSupplier(supplier)
             firestoreSyncManager.syncToCloud("suppliers", supplier.id, supplier)
             Result.success(supplier)
         } catch (e: Exception) {

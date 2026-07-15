@@ -22,7 +22,7 @@ import com.palletflow.data.local.entity.*
         SaleItem::class,
         SaleExpense::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -313,6 +313,26 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """)
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_expenses_transactionId` ON `sale_expenses` (`transactionId`)")
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE lot_items ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("UPDATE lot_items SET userId = (SELECT userId FROM lots WHERE lots.id = lot_items.lotId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lot_items_userId` ON `lot_items` (`userId`)")
+
+                db.execSQL("ALTER TABLE lot_expenses ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("UPDATE lot_expenses SET userId = (SELECT userId FROM lots WHERE lots.id = lot_expenses.lotId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lot_expenses_userId` ON `lot_expenses` (`userId`)")
+
+                db.execSQL("ALTER TABLE sale_items ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("UPDATE sale_items SET userId = (SELECT userId FROM transactions WHERE transactions.id = sale_items.transactionId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_items_userId` ON `sale_items` (`userId`)")
+
+                db.execSQL("ALTER TABLE sale_expenses ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                db.execSQL("UPDATE sale_expenses SET userId = (SELECT userId FROM transactions WHERE transactions.id = sale_expenses.transactionId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sale_expenses_userId` ON `sale_expenses` (`userId`)")
             }
         }
     }

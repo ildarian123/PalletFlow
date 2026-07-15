@@ -32,24 +32,28 @@ class ItemRepositoryImpl @Inject constructor(
 
         firestoreSyncManager.observeCollection("items", userId, Item::class.java)
             .onEach { items ->
-                items.forEach { remoteItem ->
-                    val localItem = itemDao.getItemByIdSync(remoteItem.id, userId)
-                    
-                    // If remote has a photo URL and local doesn't have a valid local path
-                    val itemToSave = if (remoteItem.photoPath != null && remoteItem.photoPath.startsWith("http")) {
-                        if (localItem?.photoPath == null || !File(localItem.photoPath).exists()) {
-                            // Download and save locally
-                            val localPath = localFileHelper.downloadImageToInternalStorage(remoteItem.photoPath)
-                            remoteItem.copy(photoPath = localPath)
+                try {
+                    items.forEach { remoteItem ->
+                        val localItem = itemDao.getItemByIdSync(remoteItem.id, userId)
+                        
+                        // If remote has a photo URL and local doesn't have a valid local path
+                        val itemToSave = if (remoteItem.photoPath != null && remoteItem.photoPath.startsWith("http")) {
+                            if (localItem?.photoPath == null || !File(localItem.photoPath).exists()) {
+                                // Download and save locally
+                                val localPath = localFileHelper.downloadImageToInternalStorage(remoteItem.photoPath)
+                                remoteItem.copy(photoPath = localPath)
+                            } else {
+                                // Keep existing local path
+                                remoteItem.copy(photoPath = localItem.photoPath)
+                            }
                         } else {
-                            // Keep existing local path
-                            remoteItem.copy(photoPath = localItem.photoPath)
+                            remoteItem
                         }
-                    } else {
-                        remoteItem
+                        
+                        itemDao.upsertItem(itemToSave)
                     }
-                    
-                    itemDao.insertItem(itemToSave)
+                } catch (e: Exception) {
+                    Log.e("ItemRepository", "Failed to sync items", e)
                 }
             }
             .launchIn(repositoryScope)
@@ -66,7 +70,7 @@ class ItemRepositoryImpl @Inject constructor(
 
     override suspend fun createItem(item: Item): Result<Item> {
         return try {
-            itemDao.insertItem(item)
+            itemDao.upsertItem(item)
             
             // Handle photo upload if exists and is a local path
             val itemToSync = if (item.photoPath != null && !item.photoPath.startsWith("http")) {

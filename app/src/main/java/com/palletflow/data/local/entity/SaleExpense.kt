@@ -7,10 +7,14 @@ import java.util.UUID
 
 @Entity(
     tableName = "sale_expenses",
-    indices = [Index("transactionId")]
+    indices = [
+        Index("transactionId"),
+        Index("userId")
+    ]
 )
 data class SaleExpense(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val userId: String = "",
     val transactionId: String = "",
     val name: String = "",
     val amount: Double = 0.0,

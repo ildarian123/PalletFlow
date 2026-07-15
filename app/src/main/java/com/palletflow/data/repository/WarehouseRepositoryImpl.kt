@@ -27,7 +27,11 @@ class WarehouseRepositoryImpl @Inject constructor(
 
         firestoreSyncManager.observeCollection("warehouses", userId, Warehouse::class.java)
             .onEach { warehouses ->
-                warehouses.forEach { warehouseDao.insertWarehouse(it) }
+                try {
+                    warehouses.forEach { warehouseDao.upsertWarehouse(it) }
+                } catch (e: Exception) {
+                    Log.e("WarehouseRepository", "Failed to sync warehouses", e)
+                }
             }
             .launchIn(repositoryScope)
     }
@@ -51,7 +55,7 @@ class WarehouseRepositoryImpl @Inject constructor(
             if (warehouseDao.isNameTaken(warehouse.name, warehouse.userId) > 0) {
                 return Result.failure(Exception("Warehouse name already exists"))
             }
-            warehouseDao.insertWarehouse(warehouse)
+            warehouseDao.upsertWarehouse(warehouse)
             firestoreSyncManager.syncToCloud("warehouses", warehouse.id, warehouse)
             Result.success(warehouse)
         } catch (e: Exception) {

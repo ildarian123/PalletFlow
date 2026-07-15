@@ -17,10 +17,14 @@ import java.util.UUID
             onDelete = CASCADE
         )
     ],
-    indices = [Index("lotId")]
+    indices = [
+        Index("lotId"),
+        Index("userId")
+    ]
 )
 data class LotExpense(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    val userId: String = "",
     val lotId: String = "",
     val name: String = "",
     val amount: Double = 0.0,
