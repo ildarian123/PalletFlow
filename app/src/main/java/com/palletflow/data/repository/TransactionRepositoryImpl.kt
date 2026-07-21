@@ -33,9 +33,18 @@ class TransactionRepositoryImpl @Inject constructor(
         isSyncStarted = true
 
         firestoreSyncManager.observeCollection("transactions", userId, Transaction::class.java)
-            .onEach { transactions ->
+            .onEach { remoteTransactions ->
                 try {
-                    transactions.forEach { transactionDao.upsertTransaction(it) }
+                    val remoteIds = remoteTransactions.map { it.id }.toSet()
+                    val localTransactions = transactionDao.getAllTransactions(userId).first()
+                    for (local in localTransactions) {
+                        if (local.id !in remoteIds) {
+                            transactionDao.deleteTransaction(local)
+                        }
+                    }
+                    for (remote in remoteTransactions) {
+                        transactionDao.upsertTransaction(remote)
+                    }
                 } catch (e: Exception) {
                     Log.e("TransactionRepository", "Failed to sync transactions", e)
                 }
@@ -43,9 +52,18 @@ class TransactionRepositoryImpl @Inject constructor(
             .launchIn(repositoryScope)
 
         firestoreSyncManager.observeCollection("sale_items", userId, SaleItem::class.java)
-            .onEach { items ->
+            .onEach { remoteItems ->
                 try {
-                    items.forEach { saleItemDao.upsertSaleItem(it) }
+                    val remoteIds = remoteItems.map { it.id }.toSet()
+                    val localItems = saleItemDao.getSaleItemsByUser(userId).first()
+                    for (local in localItems) {
+                        if (local.id !in remoteIds) {
+                            saleItemDao.deleteSaleItem(local)
+                        }
+                    }
+                    for (remote in remoteItems) {
+                        saleItemDao.upsertSaleItem(remote)
+                    }
                 } catch (e: Exception) {
                     Log.e("TransactionRepository", "Failed to sync sale items", e)
                 }
@@ -53,9 +71,18 @@ class TransactionRepositoryImpl @Inject constructor(
             .launchIn(repositoryScope)
 
         firestoreSyncManager.observeCollection("sale_expenses", userId, SaleExpense::class.java)
-            .onEach { expenses ->
+            .onEach { remoteExpenses ->
                 try {
-                    expenses.forEach { saleExpenseDao.upsertSaleExpense(it) }
+                    val remoteIds = remoteExpenses.map { it.id }.toSet()
+                    val localExpenses = saleExpenseDao.getSaleExpensesByUser(userId).first()
+                    for (local in localExpenses) {
+                        if (local.id !in remoteIds) {
+                            saleExpenseDao.deleteSaleExpense(local)
+                        }
+                    }
+                    for (remote in remoteExpenses) {
+                        saleExpenseDao.upsertSaleExpense(remote)
+                    }
                 } catch (e: Exception) {
                     Log.e("TransactionRepository", "Failed to sync sale expenses", e)
                 }
@@ -112,7 +139,17 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun deleteTransaction(id: String, userId: String): Result<Unit> {
         return try {
+            // Cleanup related items and expenses if they exist
+            val saleItems = saleItemDao.getItemsByTransactionId(id)
+            val saleExpenses = saleExpenseDao.getExpensesByTransactionId(id)
+            
+            for (item in saleItems) firestoreSyncManager.deleteFromCloud("sale_items", item.id)
+            for (expense in saleExpenses) firestoreSyncManager.deleteFromCloud("sale_expenses", expense.id)
+            
+            saleItemDao.deleteItemsByTransactionId(id)
+            saleExpenseDao.deleteExpensesByTransactionId(id)
             transactionDao.deleteTransactionById(id, userId)
+
             firestoreSyncManager.deleteFromCloud("transactions", id)
             Result.success(Unit)
         } catch (e: Exception) {

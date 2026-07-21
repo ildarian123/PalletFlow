@@ -31,10 +31,19 @@ class ItemRepositoryImpl @Inject constructor(
         isSyncStarted = true
 
         firestoreSyncManager.observeCollection("items", userId, Item::class.java)
-            .onEach { items ->
+            .onEach { remoteItems ->
                 try {
-                    items.forEach { remoteItem ->
-                        val localItem = itemDao.getItemByIdSync(remoteItem.id, userId)
+                    val remoteIds = remoteItems.map { it.id }.toSet()
+                    val localItems = itemDao.getAllItemsByUser(userId).first()
+                    
+                    for (local in localItems) {
+                        if (local.id !in remoteIds) {
+                            itemDao.deleteItem(local)
+                        }
+                    }
+
+                    for (remoteItem in remoteItems) {
+                        val localItem = localItems.find { it.id == remoteItem.id }
                         
                         // If remote has a photo URL and local doesn't have a valid local path
                         val itemToSave = if (remoteItem.photoPath != null && remoteItem.photoPath.startsWith("http")) {

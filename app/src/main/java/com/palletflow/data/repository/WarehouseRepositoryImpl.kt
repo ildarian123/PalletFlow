@@ -26,9 +26,20 @@ class WarehouseRepositoryImpl @Inject constructor(
         isSyncStarted = true
 
         firestoreSyncManager.observeCollection("warehouses", userId, Warehouse::class.java)
-            .onEach { warehouses ->
+            .onEach { remoteWarehouses ->
                 try {
-                    warehouses.forEach { warehouseDao.upsertWarehouse(it) }
+                    val remoteIds = remoteWarehouses.map { it.id }.toSet()
+                    val localWarehouses = warehouseDao.getAllWarehousesByUser(userId).first()
+                    
+                    for (local in localWarehouses) {
+                        if (local.id !in remoteIds) {
+                            warehouseDao.deleteWarehouse(local)
+                        }
+                    }
+                    
+                    for (remote in remoteWarehouses) {
+                        warehouseDao.upsertWarehouse(remote)
+                    }
                 } catch (e: Exception) {
                     Log.e("WarehouseRepository", "Failed to sync warehouses", e)
                 }

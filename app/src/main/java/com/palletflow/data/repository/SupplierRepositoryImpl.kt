@@ -24,9 +24,20 @@ class SupplierRepositoryImpl @Inject constructor(
         isSyncStarted = true
 
         firestoreSyncManager.observeCollection("suppliers", userId, Supplier::class.java)
-            .onEach { suppliers ->
+            .onEach { remoteSuppliers ->
                 try {
-                    suppliers.forEach { supplierDao.upsertSupplier(it) }
+                    val remoteIds = remoteSuppliers.map { it.id }.toSet()
+                    val localSuppliers = supplierDao.getAllSuppliersByUser(userId).first()
+                    
+                    for (local in localSuppliers) {
+                        if (local.id !in remoteIds) {
+                            supplierDao.deleteSupplier(local)
+                        }
+                    }
+                    
+                    for (remote in remoteSuppliers) {
+                        supplierDao.upsertSupplier(remote)
+                    }
                 } catch (e: Exception) {
                     Log.e("SupplierRepository", "Failed to sync suppliers", e)
                 }
@@ -46,6 +57,28 @@ class SupplierRepositoryImpl @Inject constructor(
             Result.success(supplier)
         } catch (e: Exception) {
             Log.e("SupplierRepository", "Failed to create supplier", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateSupplier(supplier: Supplier): Result<Supplier> {
+        return try {
+            supplierDao.upsertSupplier(supplier)
+            firestoreSyncManager.syncToCloud("suppliers", supplier.id, supplier)
+            Result.success(supplier)
+        } catch (e: Exception) {
+            Log.e("SupplierRepository", "Failed to update supplier", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun deleteSupplier(id: String, userId: String): Result<Unit> {
+        return try {
+            supplierDao.deleteSupplierById(id, userId)
+            firestoreSyncManager.deleteFromCloud("suppliers", id)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("SupplierRepository", "Failed to delete supplier", e)
             Result.failure(e)
         }
     }

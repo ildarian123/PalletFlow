@@ -13,6 +13,9 @@ interface StockDao {
     @Update
     suspend fun updateStock(stock: Stock)
 
+    @Delete
+    suspend fun deleteStock(stock: Stock)
+
     @Query("""
         SELECT * FROM stocks 
         WHERE userId = :userId AND itemId = :itemId AND warehouseId = :warehouseId

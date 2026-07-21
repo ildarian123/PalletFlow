@@ -9,6 +9,9 @@ interface SaleItemDao {
     @Upsert
     suspend fun upsertSaleItem(saleItem: SaleItem)
 
+    @Delete
+    suspend fun deleteSaleItem(saleItem: SaleItem)
+
     @Query("SELECT * FROM sale_items WHERE transactionId = :transactionId")
     suspend fun getItemsByTransactionId(transactionId: String): List<SaleItem>
     

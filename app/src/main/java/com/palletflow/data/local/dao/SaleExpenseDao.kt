@@ -9,6 +9,9 @@ interface SaleExpenseDao {
     @Upsert
     suspend fun upsertSaleExpense(saleExpense: SaleExpense)
 
+    @Delete
+    suspend fun deleteSaleExpense(saleExpense: SaleExpense)
+
     @Query("SELECT * FROM sale_expenses WHERE transactionId = :transactionId")
     suspend fun getExpensesByTransactionId(transactionId: String): List<SaleExpense>
     

@@ -22,8 +22,23 @@ class StockRepositoryImpl @Inject constructor(
 
     private fun startSync(userId: String) {
         firestoreSyncManager.observeCollection("stocks", userId, Stock::class.java)
-            .onEach { stocks ->
-                stocks.forEach { stockDao.upsertStock(it) }
+            .onEach { remoteStocks ->
+                try {
+                    val remoteIds = remoteStocks.map { it.id }.toSet()
+                    val localStocks = stockDao.getStocksByUser(userId).first()
+                    
+                    for (local in localStocks) {
+                        if (local.id !in remoteIds) {
+                            stockDao.deleteStock(local)
+                        }
+                    }
+                    
+                    for (remote in remoteStocks) {
+                        stockDao.upsertStock(remote)
+                    }
+                } catch (e: Exception) {
+                    Log.e("StockRepository", "Failed to sync stocks", e)
+                }
             }
             .launchIn(repositoryScope)
     }

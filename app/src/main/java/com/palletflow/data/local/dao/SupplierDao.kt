@@ -12,6 +12,9 @@ interface SupplierDao {
     @Upsert
     suspend fun upsertSupplier(supplier: Supplier)
 
+    @Query("DELETE FROM suppliers WHERE id = :id AND userId = :userId")
+    suspend fun deleteSupplierById(id: String, userId: String)
+
     @Delete
     suspend fun deleteSupplier(supplier: Supplier)
 }

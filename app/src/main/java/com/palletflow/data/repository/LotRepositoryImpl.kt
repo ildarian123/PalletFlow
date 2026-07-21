@@ -35,9 +35,18 @@ class LotRepositoryImpl @Inject constructor(
         isSyncStarted = true
 
         firestoreSyncManager.observeCollection("lots", userId, Lot::class.java)
-            .onEach { lots -> 
+            .onEach { remoteLots -> 
                 try {
-                    lots.forEach { lotDao.upsertLot(it) }
+                    val remoteIds = remoteLots.map { it.id }.toSet()
+                    val localLots = lotDao.getLotsByUser(userId).first()
+                    for (local in localLots) {
+                        if (local.id !in remoteIds) {
+                            lotDao.deleteLot(local)
+                        }
+                    }
+                    for (remote in remoteLots) {
+                        lotDao.upsertLot(remote)
+                    }
                 } catch (e: Exception) {
                     Log.e("LotRepository", "Failed to sync lots", e)
                 }
@@ -45,9 +54,18 @@ class LotRepositoryImpl @Inject constructor(
             .launchIn(repositoryScope)
         
         firestoreSyncManager.observeCollection("lot_items", userId, LotItem::class.java)
-            .onEach { items -> 
+            .onEach { remoteItems -> 
                 try {
-                    items.forEach { lotItemDao.upsertLotItem(it) }
+                    val remoteIds = remoteItems.map { it.id }.toSet()
+                    val localItems = lotItemDao.getLotItemsByUser(userId).first()
+                    for (local in localItems) {
+                        if (local.id !in remoteIds) {
+                            lotItemDao.deleteLotItem(local)
+                        }
+                    }
+                    for (remote in remoteItems) {
+                        lotItemDao.upsertLotItem(remote)
+                    }
                 } catch (e: Exception) {
                     Log.e("LotRepository", "Failed to sync lot items", e)
                 }
@@ -55,9 +73,18 @@ class LotRepositoryImpl @Inject constructor(
             .launchIn(repositoryScope)
 
         firestoreSyncManager.observeCollection("lot_expenses", userId, LotExpense::class.java)
-            .onEach { expenses -> 
+            .onEach { remoteExpenses -> 
                 try {
-                    expenses.forEach { lotExpenseDao.upsertExpense(it) }
+                    val remoteIds = remoteExpenses.map { it.id }.toSet()
+                    val localExpenses = lotExpenseDao.getLotExpensesByUser(userId).first()
+                    for (local in localExpenses) {
+                        if (local.id !in remoteIds) {
+                            lotExpenseDao.deleteExpense(local)
+                        }
+                    }
+                    for (remote in remoteExpenses) {
+                        lotExpenseDao.upsertExpense(remote)
+                    }
                 } catch (e: Exception) {
                     Log.e("LotRepository", "Failed to sync lot expenses", e)
                 }
