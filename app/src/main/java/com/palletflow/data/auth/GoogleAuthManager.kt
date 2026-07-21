@@ -83,10 +83,16 @@ class GoogleAuthManager @Inject constructor(
     }
 
     fun signOut() {
+        Log.d("GoogleAuthManager", "signOut called")
         firebaseAuth.signOut()
         googleSignInClient.signOut().addOnCompleteListener {
-            authPreferences.clearCredentials()
+            Log.d("GoogleAuthManager", "Google Sign-Out complete")
         }
+        // Revoke access to force account selection next time
+        googleSignInClient.revokeAccess().addOnCompleteListener {
+            Log.d("GoogleAuthManager", "Google Access Revoked")
+        }
+        authPreferences.clearCredentials()
     }
 
     fun isSignedIn(): Boolean {

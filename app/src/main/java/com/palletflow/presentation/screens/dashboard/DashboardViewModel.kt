@@ -2,6 +2,7 @@ package com.palletflow.presentation.screens.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.palletflow.data.auth.GoogleAuthManager
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.local.dao.UserDao
 import com.palletflow.data.local.entity.TransactionType
@@ -18,7 +19,8 @@ class DashboardViewModel @Inject constructor(
     private val authPreferences: AuthPreferences,
     private val userDao: UserDao,
     private val transactionRepository: TransactionRepository,
-    private val observeFinancialOverviewUseCase: ObserveFinancialOverviewUseCase
+    private val observeFinancialOverviewUseCase: ObserveFinancialOverviewUseCase,
+    private val googleAuthManager: GoogleAuthManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState = _uiState.asStateFlow()
@@ -86,6 +88,7 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun logout() {
+        googleAuthManager.signOut()
         authPreferences.clearCredentials()
     }
 }
