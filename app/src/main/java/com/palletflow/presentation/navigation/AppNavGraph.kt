@@ -29,6 +29,7 @@ import com.palletflow.presentation.screens.warehouse.WarehouseListScreen
 import com.palletflow.presentation.screens.warehouse.AddWarehouseScreen
 import com.palletflow.presentation.screens.warehouse.WarehouseDetailScreen
 import com.palletflow.presentation.screens.warehouse.EditWarehouseScreen
+import com.palletflow.presentation.screens.supplier.NewSupplierScreen
 import com.palletflow.presentation.screens.sales.SalesScreen
 import com.palletflow.presentation.screens.lot.ReceiveLotScreen
 import com.palletflow.presentation.screens.sell.SellScreen
@@ -275,6 +276,13 @@ fun AppNavGraph(navController: NavHostController) {
             )
         }
 
+        composable(Screen.NewSupplier.route) {
+            NewSupplierScreen(
+                onBackClick = { navController.popBackStack() },
+                onSupplierSaved = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.WarehouseDetail.route) {
             WarehouseDetailScreen(
                 onBackClick = { navController.popBackStack() },
@@ -328,7 +336,7 @@ fun AppNavGraph(navController: NavHostController) {
                         navController.popBackStack()
                     }
                 },
-                onAddNewSupplierClick = { /* Handle elsewhere if needed */ },
+                onAddNewSupplierClick = { navController.navigate(Screen.NewSupplier.route) },
                 onCreateNewItemClick = { navController.navigate(Screen.AddItem.route) }
             )
         }

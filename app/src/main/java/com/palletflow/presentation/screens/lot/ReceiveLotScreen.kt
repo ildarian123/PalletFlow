@@ -243,7 +243,7 @@ private fun ReceiveLotContent(
                                     )
 
                                     TextButton(
-                                        onClick = onOpenAddSupplierSheet,
+                                        onClick = onAddNewSupplierClick,
                                         modifier = Modifier.align(Alignment.CenterHorizontally)
                                     ) {
                                         Icon(Icons.Default.Add, null, tint = Color(0xFF00C2A0), modifier = Modifier.size(18.dp))
@@ -390,7 +390,10 @@ private fun ReceiveLotContent(
                         onSupplierChange(it)
                         showSupplierSheet = false
                     },
-                    onAddNewSupplierClick = onAddNewSupplierClick
+                    onAddNewSupplierClick = {
+                        showSupplierSheet = false
+                        onAddNewSupplierClick()
+                    }
                 )
             }
 
