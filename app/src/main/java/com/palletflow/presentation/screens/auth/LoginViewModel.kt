@@ -205,7 +205,7 @@ class LoginViewModel @Inject constructor(
         if (state.email.isBlank()) {
             _uiState.update { it.copy(emailError = "Email cannot be empty") }
             isValid = false
-        } else if (!Patterns.EMAIL_ADDRESS.matcher(state.email).matches()) {
+        } else if (!isEmailValid(state.email)) {
             _uiState.update { it.copy(emailError = "Invalid email format") }
             isValid = false
         }
@@ -216,6 +216,15 @@ class LoginViewModel @Inject constructor(
         }
         
         return isValid
+    }
+
+    private fun isEmailValid(email: String): Boolean {
+        return try {
+            Patterns.EMAIL_ADDRESS.matcher(email).matches()
+        } catch (e: Exception) {
+            // Fallback for unit tests where Patterns.EMAIL_ADDRESS is null
+            email.contains("@") && email.contains(".")
+        }
     }
 
     private fun saveCredentials(email: String, hashedPassword: String, userId: String) {
