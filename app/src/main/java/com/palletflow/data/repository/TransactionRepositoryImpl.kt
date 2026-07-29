@@ -8,9 +8,7 @@ import com.palletflow.data.local.dao.StockDao
 import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.*
 import com.palletflow.domain.repository.TransactionRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,74 +24,54 @@ class TransactionRepositoryImpl @Inject constructor(
 ) : TransactionRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var isSyncStarted = false
+    private var syncJob: Job? = null
+    private var currentSyncUserId: String? = null
 
     private fun startSync(userId: String) {
-        if (isSyncStarted) return
-        isSyncStarted = true
+        if (currentSyncUserId == userId) return
+        
+        syncJob?.cancel()
+        currentSyncUserId = userId
 
-        firestoreSyncManager.observeCollection("transactions", userId, Transaction::class.java)
-            .onEach { remoteTransactions ->
-                try {
-                    database.withTransaction {
-                        val remoteIds = remoteTransactions.map { it.id }.toSet()
-                        val localTransactions = transactionDao.getAllTransactionsSync(userId)
-                        for (local in localTransactions) {
-                            if (local.id !in remoteIds) {
-                                transactionDao.deleteTransaction(local)
-                            }
-                        }
-                        for (remote in remoteTransactions) {
-                            transactionDao.upsertTransaction(remote)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("TransactionRepository", "Failed to sync transactions", e)
-                }
-            }
-            .launchIn(repositoryScope)
+        val transactionsFlow = firestoreSyncManager.observeCollection("transactions", userId, Transaction::class.java)
+        val saleItemsFlow = firestoreSyncManager.observeCollection("sale_items", userId, SaleItem::class.java)
+        val saleExpensesFlow = firestoreSyncManager.observeCollection("sale_expenses", userId, SaleExpense::class.java)
 
-        firestoreSyncManager.observeCollection("sale_items", userId, SaleItem::class.java)
-            .onEach { remoteItems ->
-                try {
-                    database.withTransaction {
-                        val remoteIds = remoteItems.map { it.id }.toSet()
-                        val localItems = saleItemDao.getSaleItemsByUserSync(userId)
-                        for (local in localItems) {
-                            if (local.id !in remoteIds) {
-                                saleItemDao.deleteSaleItem(local)
-                            }
-                        }
-                        for (remote in remoteItems) {
-                            saleItemDao.upsertSaleItem(remote)
-                        }
+        syncJob = combine(transactionsFlow, saleItemsFlow, saleExpensesFlow) { txs, items, exps ->
+            Triple(txs, items, exps)
+        }
+        .onEach { (remoteTransactions, remoteItems, remoteExpenses) ->
+            try {
+                database.withTransaction {
+                    // Sync Transactions
+                    val remoteTxIds = remoteTransactions.map { it.id }.toSet()
+                    val localTransactions = transactionDao.getAllTransactionsSync(userId)
+                    for (local in localTransactions) {
+                        if (local.id !in remoteTxIds) transactionDao.deleteTransaction(local)
                     }
-                } catch (e: Exception) {
-                    Log.e("TransactionRepository", "Failed to sync sale items", e)
-                }
-            }
-            .launchIn(repositoryScope)
+                    for (remote in remoteTransactions) transactionDao.upsertTransaction(remote)
 
-        firestoreSyncManager.observeCollection("sale_expenses", userId, SaleExpense::class.java)
-            .onEach { remoteExpenses ->
-                try {
-                    database.withTransaction {
-                        val remoteIds = remoteExpenses.map { it.id }.toSet()
-                        val localExpenses = saleExpenseDao.getSaleExpensesByUserSync(userId)
-                        for (local in localExpenses) {
-                            if (local.id !in remoteIds) {
-                                saleExpenseDao.deleteSaleExpense(local)
-                            }
-                        }
-                        for (remote in remoteExpenses) {
-                            saleExpenseDao.upsertSaleExpense(remote)
-                        }
+                    // Sync Sale Items
+                    val remoteItemIds = remoteItems.map { it.id }.toSet()
+                    val localItems = saleItemDao.getSaleItemsByUserSync(userId)
+                    for (local in localItems) {
+                        if (local.id !in remoteItemIds) saleItemDao.deleteSaleItem(local)
                     }
-                } catch (e: Exception) {
-                    Log.e("TransactionRepository", "Failed to sync sale expenses", e)
+                    for (remote in remoteItems) saleItemDao.upsertSaleItem(remote)
+
+                    // Sync Sale Expenses
+                    val remoteExpIds = remoteExpenses.map { it.id }.toSet()
+                    val localExpenses = saleExpenseDao.getSaleExpensesByUserSync(userId)
+                    for (local in localExpenses) {
+                        if (local.id !in remoteExpIds) saleExpenseDao.deleteSaleExpense(local)
+                    }
+                    for (remote in remoteExpenses) saleExpenseDao.upsertSaleExpense(remote)
                 }
+            } catch (e: Exception) {
+                Log.e("TransactionRepository", "Failed to sync transaction data", e)
             }
-            .launchIn(repositoryScope)
+        }
+        .launchIn(repositoryScope)
     }
 
     override fun getAllTransactions(userId: String): Flow<List<Transaction>> {

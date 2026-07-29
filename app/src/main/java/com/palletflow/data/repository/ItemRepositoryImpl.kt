@@ -28,13 +28,16 @@ class ItemRepositoryImpl @Inject constructor(
 ) : ItemRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var isSyncStarted = false
+    private var syncJob: Job? = null
+    private var currentSyncUserId: String? = null
 
     private fun startSync(userId: String) {
-        if (isSyncStarted) return
-        isSyncStarted = true
+        if (currentSyncUserId == userId) return
+        
+        syncJob?.cancel()
+        currentSyncUserId = userId
 
-        firestoreSyncManager.observeCollection(ITEMS, userId, Item::class.java)
+        syncJob = firestoreSyncManager.observeCollection(ITEMS, userId, Item::class.java)
             .onEach { remoteItems ->
                 try {
                     database.withTransaction {

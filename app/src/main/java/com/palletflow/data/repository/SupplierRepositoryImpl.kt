@@ -7,9 +7,7 @@ import com.palletflow.data.local.dao.SupplierDao
 import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.Supplier
 import com.palletflow.domain.repository.SupplierRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
@@ -20,13 +18,16 @@ class SupplierRepositoryImpl @Inject constructor(
 ) : SupplierRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var isSyncStarted = false
+    private var syncJob: Job? = null
+    private var currentSyncUserId: String? = null
 
     private fun startSync(userId: String) {
-        if (isSyncStarted) return
-        isSyncStarted = true
+        if (currentSyncUserId == userId) return
+        
+        syncJob?.cancel()
+        currentSyncUserId = userId
 
-        firestoreSyncManager.observeCollection("suppliers", userId, Supplier::class.java)
+        syncJob = firestoreSyncManager.observeCollection("suppliers", userId, Supplier::class.java)
             .onEach { remoteSuppliers ->
                 try {
                     database.withTransaction {

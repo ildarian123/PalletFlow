@@ -9,9 +9,7 @@ import com.palletflow.data.local.entity.*
 import com.palletflow.domain.repository.LotRepository
 import com.palletflow.domain.usecase.lot.ExpenseToAdd
 import com.palletflow.domain.usecase.lot.ItemToReceive
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -28,74 +26,54 @@ class LotRepositoryImpl @Inject constructor(
 ) : LotRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var isSyncStarted = false
+    private var syncJob: Job? = null
+    private var currentSyncUserId: String? = null
 
     private fun startSync(userId: String) {
-        if (isSyncStarted) return
-        isSyncStarted = true
-
-        firestoreSyncManager.observeCollection("lots", userId, Lot::class.java)
-            .onEach { remoteLots -> 
-                try {
-                    database.withTransaction {
-                        val remoteIds = remoteLots.map { it.id }.toSet()
-                        val localLots = lotDao.getLotsByUserSync(userId)
-                        for (local in localLots) {
-                            if (local.id !in remoteIds) {
-                                lotDao.deleteLot(local)
-                            }
-                        }
-                        for (remote in remoteLots) {
-                            lotDao.upsertLot(remote)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("LotRepository", "Failed to sync lots", e)
-                }
-            }
-            .launchIn(repositoryScope)
+        if (currentSyncUserId == userId) return
         
-        firestoreSyncManager.observeCollection("lot_items", userId, LotItem::class.java)
-            .onEach { remoteItems -> 
-                try {
-                    database.withTransaction {
-                        val remoteIds = remoteItems.map { it.id }.toSet()
-                        val localItems = lotItemDao.getLotItemsByUserSync(userId)
-                        for (local in localItems) {
-                            if (local.id !in remoteIds) {
-                                lotItemDao.deleteLotItem(local)
-                            }
-                        }
-                        for (remote in remoteItems) {
-                            lotItemDao.upsertLotItem(remote)
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("LotRepository", "Failed to sync lot items", e)
-                }
-            }
-            .launchIn(repositoryScope)
+        syncJob?.cancel()
+        currentSyncUserId = userId
 
-        firestoreSyncManager.observeCollection("lot_expenses", userId, LotExpense::class.java)
-            .onEach { remoteExpenses -> 
-                try {
-                    database.withTransaction {
-                        val remoteIds = remoteExpenses.map { it.id }.toSet()
-                        val localExpenses = lotExpenseDao.getLotExpensesByUserSync(userId)
-                        for (local in localExpenses) {
-                            if (local.id !in remoteIds) {
-                                lotExpenseDao.deleteExpense(local)
-                            }
-                        }
-                        for (remote in remoteExpenses) {
-                            lotExpenseDao.upsertExpense(remote)
-                        }
+        val lotsFlow = firestoreSyncManager.observeCollection("lots", userId, Lot::class.java)
+        val lotItemsFlow = firestoreSyncManager.observeCollection("lot_items", userId, LotItem::class.java)
+        val lotExpensesFlow = firestoreSyncManager.observeCollection("lot_expenses", userId, LotExpense::class.java)
+
+        syncJob = combine(lotsFlow, lotItemsFlow, lotExpensesFlow) { lots, items, expenses ->
+            Triple(lots, items, expenses)
+        }
+        .onEach { (remoteLots, remoteItems, remoteExpenses) ->
+            try {
+                database.withTransaction {
+                    // Sync Lots
+                    val remoteLotIds = remoteLots.map { it.id }.toSet()
+                    val localLots = lotDao.getLotsByUserSync(userId)
+                    for (local in localLots) {
+                        if (local.id !in remoteLotIds) lotDao.deleteLot(local)
                     }
-                } catch (e: Exception) {
-                    Log.e("LotRepository", "Failed to sync lot expenses", e)
+                    for (remote in remoteLots) lotDao.upsertLot(remote)
+
+                    // Sync Items
+                    val remoteItemIds = remoteItems.map { it.id }.toSet()
+                    val localItems = lotItemDao.getLotItemsByUserSync(userId)
+                    for (local in localItems) {
+                        if (local.id !in remoteItemIds) lotItemDao.deleteLotItem(local)
+                    }
+                    for (remote in remoteItems) lotItemDao.upsertLotItem(remote)
+
+                    // Sync Expenses
+                    val remoteExpenseIds = remoteExpenses.map { it.id }.toSet()
+                    val localExpenses = lotExpenseDao.getLotExpensesByUserSync(userId)
+                    for (local in localExpenses) {
+                        if (local.id !in remoteExpenseIds) lotExpenseDao.deleteExpense(local)
+                    }
+                    for (remote in remoteExpenses) lotExpenseDao.upsertExpense(remote)
                 }
+            } catch (e: Exception) {
+                Log.e("LotRepository", "Failed to sync lot data", e)
             }
-            .launchIn(repositoryScope)
+        }
+        .launchIn(repositoryScope)
     }
 
     override fun getAllLots(userId: String): Flow<List<Lot>> {

@@ -7,9 +7,7 @@ import com.palletflow.data.local.dao.WarehouseDao
 import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.Warehouse
 import com.palletflow.domain.repository.WarehouseRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,13 +20,16 @@ class WarehouseRepositoryImpl @Inject constructor(
 ) : WarehouseRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var isSyncStarted = false
+    private var syncJob: Job? = null
+    private var currentSyncUserId: String? = null
 
     private fun startSync(userId: String) {
-        if (isSyncStarted) return
-        isSyncStarted = true
+        if (currentSyncUserId == userId) return
+        
+        syncJob?.cancel()
+        currentSyncUserId = userId
 
-        firestoreSyncManager.observeCollection("warehouses", userId, Warehouse::class.java)
+        syncJob = firestoreSyncManager.observeCollection("warehouses", userId, Warehouse::class.java)
             .onEach { remoteWarehouses ->
                 try {
                     database.withTransaction {
