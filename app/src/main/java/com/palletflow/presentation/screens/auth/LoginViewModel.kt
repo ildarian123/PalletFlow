@@ -14,6 +14,7 @@ import com.palletflow.data.firestore.FirestoreBackupData
 import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.*
 import com.palletflow.data.util.PasswordHasher
+import com.palletflow.util.NetworkHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.channels.Channel
@@ -39,7 +40,8 @@ class LoginViewModel @Inject constructor(
     private val transactionDao: TransactionDao,
     private val stockDao: StockDao,
     private val saleItemDao: SaleItemDao,
-    private val saleExpenseDao: SaleExpenseDao
+    private val saleExpenseDao: SaleExpenseDao,
+    private val networkHelper: NetworkHelper
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState = _uiState.asStateFlow()
@@ -49,13 +51,26 @@ class LoginViewModel @Inject constructor(
 
     fun getGoogleSignInIntent(): Intent {
         Log.d("LoginViewModel", "getGoogleSignInIntent requested")
+        _uiState.update { it.copy(error = null) }
+        
+        if (!networkHelper.isNetworkAvailable()) {
+            _uiState.update { it.copy(error = "No internet connection. Please check your network settings.") }
+        } else if (!networkHelper.isGooglePlayServicesAvailable()) {
+            _uiState.update { it.copy(error = "Google Play Services are not available on this device.") }
+        }
         return googleAuthManager.getSignInIntent()
     }
 
     fun handleGoogleSignIn(task: com.google.android.gms.tasks.Task<GoogleSignInAccount>) {
         Log.d("LoginViewModel", "handleGoogleSignIn started")
+        
+        if (!networkHelper.isNetworkAvailable()) {
+            _uiState.update { it.copy(isLoading = false, error = "No internet connection. Please check your network settings.") }
+            return
+        }
+
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+            _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val result = googleAuthManager.handleSignInResult(task)
                 if (result.isSuccess) {

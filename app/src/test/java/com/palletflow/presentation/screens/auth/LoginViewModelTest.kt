@@ -8,6 +8,7 @@ import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.*
 import com.palletflow.data.local.entity.UserProfile
+import com.palletflow.util.NetworkHelper
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,6 +28,7 @@ class LoginViewModelTest {
     private lateinit var googleAuthManager: GoogleAuthManager
     private lateinit var googleDriveBackupManager: GoogleDriveBackupManager
     private lateinit var firestoreSyncManager: FirestoreSyncManager
+    private lateinit var networkHelper: NetworkHelper
     private lateinit var viewModel: LoginViewModel
     
     // DAOs
@@ -55,6 +57,7 @@ class LoginViewModelTest {
         googleAuthManager = mockk()
         googleDriveBackupManager = mockk(relaxed = true)
         firestoreSyncManager = mockk(relaxed = true)
+        networkHelper = mockk(relaxed = true)
 
         viewModel = LoginViewModel(
             authPreferences,
@@ -71,7 +74,8 @@ class LoginViewModelTest {
             transactionDao,
             stockDao,
             saleItemDao,
-            saleExpenseDao
+            saleExpenseDao,
+            networkHelper
         )
     }
 

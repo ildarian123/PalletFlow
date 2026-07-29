@@ -25,8 +25,17 @@ class GoogleAuthManager @Inject constructor(
 
     private val googleSignInClient: GoogleSignInClient by lazy {
         Log.d("GoogleAuthManager", "Initializing GoogleSignInClient")
-        val clientId = context.getString(R.string.default_web_client_id)
+        val clientId = try {
+            context.getString(R.string.default_web_client_id)
+        } catch (e: Exception) {
+            Log.e("GoogleAuthManager", "Failed to get default_web_client_id. Ensure google-services.json is present.", e)
+            ""
+        }
         Log.d("GoogleAuthManager", "Using client ID: $clientId")
+        
+        if (clientId.isEmpty()) {
+            Log.e("GoogleAuthManager", "CLIENT ID IS EMPTY! Google Sign-In will fail.")
+        }
         
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(clientId)

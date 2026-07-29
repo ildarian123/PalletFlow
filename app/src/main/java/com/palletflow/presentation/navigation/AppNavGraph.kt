@@ -82,7 +82,12 @@ fun AppNavGraph(navController: NavHostController) {
                     viewModel.handleGoogleSignIn(task)
                 } else {
                     android.util.Log.e("AppNavGraph", "Google Sign-In failed with code: ${result.resultCode}")
-                    android.widget.Toast.makeText(context, "Sign-In Failed or Cancelled (Code: ${result.resultCode})", android.widget.Toast.LENGTH_LONG).show()
+                    val message = if (result.resultCode == Activity.RESULT_CANCELED) {
+                        "Sign-In Canceled. Please ensure you have a stable internet connection and try again."
+                    } else {
+                        "Sign-In Failed (Code: ${result.resultCode})"
+                    }
+                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
                 }
             }
 
@@ -115,11 +120,12 @@ fun AppNavGraph(navController: NavHostController) {
                     android.util.Log.d("AppNavGraph", "onGoogleClick triggered")
                     try {
                         val intent = viewModel.getGoogleSignInIntent()
-                        android.util.Log.d("AppNavGraph", "Launching Google Sign-In intent")
-                        googleLauncher.launch(intent)
+                        if (viewModel.uiState.value.error == null) { 
+                             android.util.Log.d("AppNavGraph", "Launching Google Sign-In intent")
+                             googleLauncher.launch(intent)
+                        }
                     } catch (e: Exception) {
                         android.util.Log.e("AppNavGraph", "Failed to launch Google Sign-In", e)
-                        // Show a placeholder error for the user
                     }
                 }
             )
