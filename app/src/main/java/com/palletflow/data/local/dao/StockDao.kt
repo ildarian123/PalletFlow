@@ -31,6 +31,13 @@ interface StockDao {
     fun getStocksByUser(userId: String): Flow<List<Stock>>
 
     @Query("""
+        SELECT * FROM stocks 
+        WHERE userId = :userId 
+        ORDER BY updatedAt DESC
+    """)
+    suspend fun getStocksByUserSync(userId: String): List<Stock>
+
+    @Query("""
         UPDATE stocks 
         SET quantity = MAX(0, quantity + :quantity), updatedAt = :updatedAt
         WHERE userId = :userId AND itemId = :itemId AND warehouseId = :warehouseId

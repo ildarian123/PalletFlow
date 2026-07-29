@@ -11,6 +11,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.palletflow.presentation.screens.auth.LoginScreen
 import com.palletflow.presentation.screens.auth.LoginViewModel
@@ -45,8 +46,8 @@ fun AppNavGraph(navController: NavHostController) {
     ) {
         composable(Screen.Splash.route) {
             val viewModel: SplashViewModel = hiltViewModel()
-            val authState by viewModel.authState.collectAsState()
-            
+            val authState by viewModel.authState.collectAsStateWithLifecycle()
+
             LaunchedEffect(authState) {
                 when (authState) {
                     SplashViewModel.AuthState.Authenticated -> {
@@ -68,7 +69,7 @@ fun AppNavGraph(navController: NavHostController) {
 
         composable(Screen.Login.route) {
             val viewModel: LoginViewModel = hiltViewModel()
-            val uiState by viewModel.uiState.collectAsState()
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
             val context = androidx.compose.ui.platform.LocalContext.current
             val googleLauncher = rememberLauncherForActivityResult(
@@ -126,7 +127,7 @@ fun AppNavGraph(navController: NavHostController) {
         
         composable(Screen.Register.route) {
             val viewModel: RegisterViewModel = hiltViewModel()
-            val state by viewModel.uiState.collectAsState()
+            val state by viewModel.uiState.collectAsStateWithLifecycle()
 
             val googleLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartActivityForResult()

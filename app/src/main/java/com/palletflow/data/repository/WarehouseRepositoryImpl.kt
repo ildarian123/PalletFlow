@@ -1,8 +1,10 @@
 package com.palletflow.data.repository
 
 import android.util.Log
+import androidx.room.withTransaction
 import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.WarehouseDao
+import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.Warehouse
 import com.palletflow.domain.repository.WarehouseRepository
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +16,7 @@ import javax.inject.Singleton
 
 @Singleton
 class WarehouseRepositoryImpl @Inject constructor(
+    private val database: AppDatabase,
     private val warehouseDao: WarehouseDao,
     private val firestoreSyncManager: FirestoreSyncManager
 ) : WarehouseRepository {
@@ -28,17 +31,20 @@ class WarehouseRepositoryImpl @Inject constructor(
         firestoreSyncManager.observeCollection("warehouses", userId, Warehouse::class.java)
             .onEach { remoteWarehouses ->
                 try {
-                    val remoteIds = remoteWarehouses.map { it.id }.toSet()
-                    val localWarehouses = warehouseDao.getAllWarehousesByUser(userId).first()
-                    
-                    for (local in localWarehouses) {
-                        if (local.id !in remoteIds) {
-                            warehouseDao.deleteWarehouse(local)
+                    database.withTransaction {
+                        val remoteIds = remoteWarehouses.map { it.id }.toSet()
+                        // Use a non-flow method for one-shot retrieval in sync logic
+                        val localWarehouses = warehouseDao.getAllWarehousesByUserSync(userId)
+                        
+                        for (local in localWarehouses) {
+                            if (local.id !in remoteIds) {
+                                warehouseDao.deleteWarehouse(local)
+                            }
                         }
-                    }
-                    
-                    for (remote in remoteWarehouses) {
-                        warehouseDao.upsertWarehouse(remote)
+                        
+                        for (remote in remoteWarehouses) {
+                            warehouseDao.upsertWarehouse(remote)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("WarehouseRepository", "Failed to sync warehouses", e)

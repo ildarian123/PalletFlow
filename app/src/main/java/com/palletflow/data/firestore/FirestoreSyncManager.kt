@@ -16,6 +16,19 @@ import javax.inject.Singleton
 class FirestoreSyncManager @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
+    companion object {
+        const val ITEMS = "items"
+        const val WAREHOUSES = "warehouses"
+        const val SUPPLIERS = "suppliers"
+        const val LOTS = "lots"
+        const val LOT_ITEMS = "lot_items"
+        const val LOT_EXPENSES = "lot_expenses"
+        const val TRANSACTIONS = "transactions"
+        const val STOCKS = "stocks"
+        const val SALE_ITEMS = "sale_items"
+        const val SALE_EXPENSES = "sale_expenses"
+    }
+
     private val TAG = "FirestoreSyncManager"
     private val activeListeners = mutableMapOf<String, ListenerRegistration>()
 

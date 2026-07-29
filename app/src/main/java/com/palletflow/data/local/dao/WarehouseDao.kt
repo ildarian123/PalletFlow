@@ -9,6 +9,9 @@ interface WarehouseDao {
     @Query("SELECT * FROM warehouses WHERE userId = :userId ORDER BY createdAt DESC")
     fun getAllWarehousesByUser(userId: String): Flow<List<Warehouse>>
 
+    @Query("SELECT * FROM warehouses WHERE userId = :userId ORDER BY createdAt DESC")
+    suspend fun getAllWarehousesByUserSync(userId: String): List<Warehouse>
+
     @Query("SELECT * FROM warehouses WHERE userId = :userId AND isActive = 1 ORDER BY createdAt DESC")
     fun getActiveWarehousesByUser(userId: String): Flow<List<Warehouse>>
 

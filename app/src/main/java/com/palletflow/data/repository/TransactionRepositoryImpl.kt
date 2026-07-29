@@ -35,15 +35,17 @@ class TransactionRepositoryImpl @Inject constructor(
         firestoreSyncManager.observeCollection("transactions", userId, Transaction::class.java)
             .onEach { remoteTransactions ->
                 try {
-                    val remoteIds = remoteTransactions.map { it.id }.toSet()
-                    val localTransactions = transactionDao.getAllTransactions(userId).first()
-                    for (local in localTransactions) {
-                        if (local.id !in remoteIds) {
-                            transactionDao.deleteTransaction(local)
+                    database.withTransaction {
+                        val remoteIds = remoteTransactions.map { it.id }.toSet()
+                        val localTransactions = transactionDao.getAllTransactionsSync(userId)
+                        for (local in localTransactions) {
+                            if (local.id !in remoteIds) {
+                                transactionDao.deleteTransaction(local)
+                            }
                         }
-                    }
-                    for (remote in remoteTransactions) {
-                        transactionDao.upsertTransaction(remote)
+                        for (remote in remoteTransactions) {
+                            transactionDao.upsertTransaction(remote)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("TransactionRepository", "Failed to sync transactions", e)
@@ -54,15 +56,17 @@ class TransactionRepositoryImpl @Inject constructor(
         firestoreSyncManager.observeCollection("sale_items", userId, SaleItem::class.java)
             .onEach { remoteItems ->
                 try {
-                    val remoteIds = remoteItems.map { it.id }.toSet()
-                    val localItems = saleItemDao.getSaleItemsByUser(userId).first()
-                    for (local in localItems) {
-                        if (local.id !in remoteIds) {
-                            saleItemDao.deleteSaleItem(local)
+                    database.withTransaction {
+                        val remoteIds = remoteItems.map { it.id }.toSet()
+                        val localItems = saleItemDao.getSaleItemsByUserSync(userId)
+                        for (local in localItems) {
+                            if (local.id !in remoteIds) {
+                                saleItemDao.deleteSaleItem(local)
+                            }
                         }
-                    }
-                    for (remote in remoteItems) {
-                        saleItemDao.upsertSaleItem(remote)
+                        for (remote in remoteItems) {
+                            saleItemDao.upsertSaleItem(remote)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("TransactionRepository", "Failed to sync sale items", e)
@@ -73,15 +77,17 @@ class TransactionRepositoryImpl @Inject constructor(
         firestoreSyncManager.observeCollection("sale_expenses", userId, SaleExpense::class.java)
             .onEach { remoteExpenses ->
                 try {
-                    val remoteIds = remoteExpenses.map { it.id }.toSet()
-                    val localExpenses = saleExpenseDao.getSaleExpensesByUser(userId).first()
-                    for (local in localExpenses) {
-                        if (local.id !in remoteIds) {
-                            saleExpenseDao.deleteSaleExpense(local)
+                    database.withTransaction {
+                        val remoteIds = remoteExpenses.map { it.id }.toSet()
+                        val localExpenses = saleExpenseDao.getSaleExpensesByUserSync(userId)
+                        for (local in localExpenses) {
+                            if (local.id !in remoteIds) {
+                                saleExpenseDao.deleteSaleExpense(local)
+                            }
                         }
-                    }
-                    for (remote in remoteExpenses) {
-                        saleExpenseDao.upsertSaleExpense(remote)
+                        for (remote in remoteExpenses) {
+                            saleExpenseDao.upsertSaleExpense(remote)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("TransactionRepository", "Failed to sync sale expenses", e)

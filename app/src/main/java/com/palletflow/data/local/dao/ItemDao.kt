@@ -18,6 +18,9 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE userId = :userId ORDER BY createdAt DESC")
     fun getAllItemsByUser(userId: String): Flow<List<Item>>
 
+    @Query("SELECT * FROM items WHERE userId = :userId ORDER BY createdAt DESC")
+    suspend fun getAllItemsByUserSync(userId: String): List<Item>
+
     @Query("SELECT * FROM items WHERE id = :id AND userId = :userId LIMIT 1")
     suspend fun getItemById(id: String, userId: String): Item?
 

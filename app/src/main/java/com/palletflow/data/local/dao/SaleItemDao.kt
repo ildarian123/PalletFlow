@@ -37,6 +37,13 @@ interface SaleItemDao {
     @Query("""
         SELECT si.* FROM sale_items si
         INNER JOIN transactions t ON si.transactionId = t.id
+        WHERE t.userId = :userId
+    """)
+    suspend fun getSaleItemsByUserSync(userId: String): List<SaleItem>
+
+    @Query("""
+        SELECT si.* FROM sale_items si
+        INNER JOIN transactions t ON si.transactionId = t.id
         WHERE t.userId = :userId 
         AND t.type = 'SALE'
         AND t.createdAt >= :startDate 

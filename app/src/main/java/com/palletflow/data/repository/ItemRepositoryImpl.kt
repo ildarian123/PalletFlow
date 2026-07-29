@@ -1,9 +1,12 @@
 package com.palletflow.data.repository
 
 import android.util.Log
+import androidx.room.withTransaction
 import com.palletflow.data.firestore.FirebaseStorageManager
 import com.palletflow.data.firestore.FirestoreSyncManager
+import com.palletflow.data.firestore.FirestoreSyncManager.Companion.ITEMS
 import com.palletflow.data.local.dao.ItemDao
+import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.Item
 import com.palletflow.domain.repository.ItemRepository
 import com.palletflow.util.LocalFileHelper
@@ -16,6 +19,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ItemRepositoryImpl @Inject constructor(
+    private val database: AppDatabase,
     private val itemDao: ItemDao,
     private val photoManager: PhotoManager,
     private val localFileHelper: LocalFileHelper,
@@ -30,36 +34,38 @@ class ItemRepositoryImpl @Inject constructor(
         if (isSyncStarted) return
         isSyncStarted = true
 
-        firestoreSyncManager.observeCollection("items", userId, Item::class.java)
+        firestoreSyncManager.observeCollection(ITEMS, userId, Item::class.java)
             .onEach { remoteItems ->
                 try {
-                    val remoteIds = remoteItems.map { it.id }.toSet()
-                    val localItems = itemDao.getAllItemsByUser(userId).first()
-                    
-                    for (local in localItems) {
-                        if (local.id !in remoteIds) {
-                            itemDao.deleteItem(local)
-                        }
-                    }
-
-                    for (remoteItem in remoteItems) {
-                        val localItem = localItems.find { it.id == remoteItem.id }
+                    database.withTransaction {
+                        val remoteIds = remoteItems.map { it.id }.toSet()
+                        val localItems = itemDao.getAllItemsByUserSync(userId)
                         
-                        // If remote has a photo URL and local doesn't have a valid local path
-                        val itemToSave = if (remoteItem.photoPath != null && remoteItem.photoPath.startsWith("http")) {
-                            if (localItem?.photoPath == null || !File(localItem.photoPath).exists()) {
-                                // Download and save locally
-                                val localPath = localFileHelper.downloadImageToInternalStorage(remoteItem.photoPath)
-                                remoteItem.copy(photoPath = localPath)
-                            } else {
-                                // Keep existing local path
-                                remoteItem.copy(photoPath = localItem.photoPath)
+                        for (local in localItems) {
+                            if (local.id !in remoteIds) {
+                                itemDao.deleteItem(local)
                             }
-                        } else {
-                            remoteItem
                         }
-                        
-                        itemDao.upsertItem(itemToSave)
+
+                        for (remoteItem in remoteItems) {
+                            val localItem = localItems.find { it.id == remoteItem.id }
+                            
+                            // If remote has a photo URL and local doesn't have a valid local path
+                            val itemToSave = if (remoteItem.photoPath != null && remoteItem.photoPath.startsWith("http")) {
+                                if (localItem?.photoPath == null || !File(localItem.photoPath).exists()) {
+                                    // Download and save locally
+                                    val localPath = localFileHelper.downloadImageToInternalStorage(remoteItem.photoPath)
+                                    remoteItem.copy(photoPath = localPath)
+                                } else {
+                                    // Keep existing local path
+                                    remoteItem.copy(photoPath = localItem.photoPath)
+                                }
+                            } else {
+                                remoteItem
+                            }
+                            
+                            itemDao.upsertItem(itemToSave)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("ItemRepository", "Failed to sync items", e)
@@ -95,7 +101,7 @@ class ItemRepositoryImpl @Inject constructor(
                 item
             }
 
-            firestoreSyncManager.syncToCloud("items", itemToSync.id, itemToSync)
+            firestoreSyncManager.syncToCloud(ITEMS, itemToSync.id, itemToSync)
             Result.success(itemToSync)
         } catch (e: Exception) {
             Result.failure(e)
@@ -120,7 +126,7 @@ class ItemRepositoryImpl @Inject constructor(
                 item
             }
 
-            firestoreSyncManager.syncToCloud("items", itemToSync.id, itemToSync)
+            firestoreSyncManager.syncToCloud(ITEMS, itemToSync.id, itemToSync)
             Result.success(itemToSync)
         } catch (e: Exception) {
             Result.failure(e)
@@ -130,7 +136,7 @@ class ItemRepositoryImpl @Inject constructor(
     override suspend fun deleteItem(item: Item, deletePhoto: Boolean): Result<Unit> {
         return try {
             itemDao.deleteItem(item)
-            firestoreSyncManager.deleteFromCloud("items", item.id)
+            firestoreSyncManager.deleteFromCloud(ITEMS, item.id)
             if (deletePhoto) {
                 if (item.photoPath != null) {
                     if (item.photoPath.startsWith("http")) {

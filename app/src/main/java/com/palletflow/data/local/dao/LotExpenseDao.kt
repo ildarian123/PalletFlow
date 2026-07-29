@@ -44,6 +44,13 @@ interface LotExpenseDao {
     """)
     fun getLotExpensesByUser(userId: String): Flow<List<LotExpense>>
 
+    @Query("""
+        SELECT le.* FROM lot_expenses le
+        INNER JOIN lots l ON le.lotId = l.id
+        WHERE l.userId = :userId
+    """)
+    suspend fun getLotExpensesByUserSync(userId: String): List<LotExpense>
+
     @Query("SELECT * FROM lot_expenses")
     fun getAllExpenses(): Flow<List<LotExpense>>
 }

@@ -9,6 +9,9 @@ interface SupplierDao {
     @Query("SELECT * FROM suppliers WHERE userId = :userId")
     fun getAllSuppliersByUser(userId: String): Flow<List<Supplier>>
 
+    @Query("SELECT * FROM suppliers WHERE userId = :userId")
+    suspend fun getAllSuppliersByUserSync(userId: String): List<Supplier>
+
     @Upsert
     suspend fun upsertSupplier(supplier: Supplier)
 

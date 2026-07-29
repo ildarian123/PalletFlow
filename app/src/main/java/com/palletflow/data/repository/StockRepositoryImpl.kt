@@ -1,8 +1,11 @@
 package com.palletflow.data.repository
 
 import android.util.Log
+import androidx.room.withTransaction
 import com.palletflow.data.firestore.FirestoreSyncManager
+import com.palletflow.data.firestore.FirestoreSyncManager.Companion.STOCKS
 import com.palletflow.data.local.dao.StockDao
+import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.Stock
 import com.palletflow.domain.repository.StockRepository
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +17,7 @@ import javax.inject.Singleton
 
 @Singleton
 class StockRepositoryImpl @Inject constructor(
+    private val database: AppDatabase,
     private val stockDao: StockDao,
     private val firestoreSyncManager: FirestoreSyncManager
 ) : StockRepository {
@@ -21,20 +25,22 @@ class StockRepositoryImpl @Inject constructor(
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private fun startSync(userId: String) {
-        firestoreSyncManager.observeCollection("stocks", userId, Stock::class.java)
+        firestoreSyncManager.observeCollection(STOCKS, userId, Stock::class.java)
             .onEach { remoteStocks ->
                 try {
-                    val remoteIds = remoteStocks.map { it.id }.toSet()
-                    val localStocks = stockDao.getStocksByUser(userId).first()
-                    
-                    for (local in localStocks) {
-                        if (local.id !in remoteIds) {
-                            stockDao.deleteStock(local)
+                    database.withTransaction {
+                        val remoteIds = remoteStocks.map { it.id }.toSet()
+                        val localStocks = stockDao.getStocksByUserSync(userId)
+                        
+                        for (local in localStocks) {
+                            if (local.id !in remoteIds) {
+                                stockDao.deleteStock(local)
+                            }
                         }
-                    }
-                    
-                    for (remote in remoteStocks) {
-                        stockDao.upsertStock(remote)
+                        
+                        for (remote in remoteStocks) {
+                            stockDao.upsertStock(remote)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("StockRepository", "Failed to sync stocks", e)
@@ -57,7 +63,7 @@ class StockRepositoryImpl @Inject constructor(
         return try {
             stockDao.incrementQuantity(userId, itemId, warehouseId, quantity)
             stockDao.getStock(userId, itemId, warehouseId)?.let {
-                firestoreSyncManager.syncToCloud("stocks", it.id, it)
+                firestoreSyncManager.syncToCloud(STOCKS, it.id, it)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -75,7 +81,7 @@ class StockRepositoryImpl @Inject constructor(
         return try {
             stockDao.decrementQuantity(userId, itemId, warehouseId, quantity)
             stockDao.getStock(userId, itemId, warehouseId)?.let {
-                firestoreSyncManager.syncToCloud("stocks", it.id, it)
+                firestoreSyncManager.syncToCloud(STOCKS, it.id, it)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -88,7 +94,7 @@ class StockRepositoryImpl @Inject constructor(
         return try {
             val sanitizedStock = if (stock.quantity < 0) stock.copy(quantity = 0) else stock
             stockDao.upsertStock(sanitizedStock)
-            firestoreSyncManager.syncToCloud("stocks", sanitizedStock.id, sanitizedStock)
+            firestoreSyncManager.syncToCloud(STOCKS, sanitizedStock.id, sanitizedStock)
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("StockRepository", "Failed to create stock", e)

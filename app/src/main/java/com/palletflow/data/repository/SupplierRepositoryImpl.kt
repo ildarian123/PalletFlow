@@ -1,8 +1,10 @@
 package com.palletflow.data.repository
 
 import android.util.Log
+import androidx.room.withTransaction
 import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.SupplierDao
+import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.Supplier
 import com.palletflow.domain.repository.SupplierRepository
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +14,7 @@ import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
 class SupplierRepositoryImpl @Inject constructor(
+    private val database: AppDatabase,
     private val supplierDao: SupplierDao,
     private val firestoreSyncManager: FirestoreSyncManager
 ) : SupplierRepository {
@@ -26,17 +29,19 @@ class SupplierRepositoryImpl @Inject constructor(
         firestoreSyncManager.observeCollection("suppliers", userId, Supplier::class.java)
             .onEach { remoteSuppliers ->
                 try {
-                    val remoteIds = remoteSuppliers.map { it.id }.toSet()
-                    val localSuppliers = supplierDao.getAllSuppliersByUser(userId).first()
-                    
-                    for (local in localSuppliers) {
-                        if (local.id !in remoteIds) {
-                            supplierDao.deleteSupplier(local)
+                    database.withTransaction {
+                        val remoteIds = remoteSuppliers.map { it.id }.toSet()
+                        val localSuppliers = supplierDao.getAllSuppliersByUserSync(userId)
+                        
+                        for (local in localSuppliers) {
+                            if (local.id !in remoteIds) {
+                                supplierDao.deleteSupplier(local)
+                            }
                         }
-                    }
-                    
-                    for (remote in remoteSuppliers) {
-                        supplierDao.upsertSupplier(remote)
+                        
+                        for (remote in remoteSuppliers) {
+                            supplierDao.upsertSupplier(remote)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("SupplierRepository", "Failed to sync suppliers", e)

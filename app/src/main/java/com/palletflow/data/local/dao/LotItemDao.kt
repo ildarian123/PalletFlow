@@ -31,6 +31,13 @@ interface LotItemDao {
     """)
     fun getLotItemsByUser(userId: String): Flow<List<LotItem>>
 
+    @Query("""
+        SELECT li.* FROM lot_items li
+        INNER JOIN lots l ON li.lotId = l.id
+        WHERE l.userId = :userId
+    """)
+    suspend fun getLotItemsByUserSync(userId: String): List<LotItem>
+
     @Query("SELECT lotId FROM lot_items WHERE itemId = :itemId LIMIT 1")
     suspend fun getLotIdForItem(itemId: String): String?
 }

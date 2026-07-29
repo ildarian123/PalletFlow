@@ -26,6 +26,13 @@ interface TransactionDao {
 
     @Query("""
         SELECT * FROM transactions 
+        WHERE userId = :userId 
+        ORDER BY createdAt DESC
+    """)
+    suspend fun getAllTransactionsSync(userId: String): List<Transaction>
+
+    @Query("""
+        SELECT * FROM transactions 
         WHERE userId = :userId AND type = :type
         ORDER BY createdAt DESC
     """)

@@ -26,4 +26,7 @@ interface LotDao {
 
     @Query("SELECT * FROM lots WHERE userId = :userId ORDER BY createdAt DESC")
     fun getLotsByUser(userId: String): Flow<List<Lot>>
+
+    @Query("SELECT * FROM lots WHERE userId = :userId ORDER BY createdAt DESC")
+    suspend fun getLotsByUserSync(userId: String): List<Lot>
 }

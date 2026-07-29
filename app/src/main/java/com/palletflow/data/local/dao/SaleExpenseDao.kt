@@ -28,6 +28,13 @@ interface SaleExpenseDao {
     """)
     fun getSaleExpensesByUser(userId: String): Flow<List<SaleExpense>>
 
+    @Query("""
+        SELECT se.* FROM sale_expenses se
+        INNER JOIN transactions t ON se.transactionId = t.id
+        WHERE t.userId = :userId
+    """)
+    suspend fun getSaleExpensesByUserSync(userId: String): List<SaleExpense>
+
     @Query("SELECT * FROM sale_expenses")
     suspend fun getAllSaleExpenses(): List<SaleExpense>
 }
