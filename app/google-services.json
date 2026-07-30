@@ -30,6 +30,22 @@
           }
         },
         {
+          "client_id": "620749428176-os8e2h7mqsmk12nthfv21mm3bps5a5ka.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.PalletFlow",
+            "certificate_hash": "abd115032993834d81e9d195917d2ff2d73a225a"
+          }
+        },
+        {
+          "client_id": "620749428176-ro8s55ibqiu4be80dt26rrl9pv4l658a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.PalletFlow",
+            "certificate_hash": "1ccf0637ff091fd3e3494d466f1ed1598e96d6c9"
+          }
+        },
+        {
           "client_id": "620749428176-587d878gi186vfk5apmdp6tkoadtf39p.apps.googleusercontent.com",
           "client_type": 3
         }

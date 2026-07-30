@@ -7,6 +7,7 @@ import com.palletflow.data.backup.GoogleDriveBackupManager
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.*
+import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.local.entity.UserProfile
 import com.palletflow.util.NetworkHelper
 import io.mockk.*
@@ -23,6 +24,7 @@ import java.util.regex.Pattern
 @OptIn(ExperimentalCoroutinesApi::class)
 class LoginViewModelTest {
 
+    private lateinit var database: AppDatabase
     private lateinit var authPreferences: AuthPreferences
     private lateinit var userDao: UserDao
     private lateinit var googleAuthManager: GoogleAuthManager
@@ -52,6 +54,7 @@ class LoginViewModelTest {
         every { Log.d(any(), any()) } returns 0
         every { Log.e(any(), any()) } returns 0
 
+        database = mockk(relaxed = true)
         authPreferences = mockk(relaxed = true)
         userDao = mockk()
         googleAuthManager = mockk()
@@ -60,6 +63,7 @@ class LoginViewModelTest {
         networkHelper = mockk(relaxed = true)
 
         viewModel = LoginViewModel(
+            database,
             authPreferences,
             userDao,
             googleAuthManager,

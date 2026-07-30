@@ -135,64 +135,89 @@ class LoginViewModel @Inject constructor(
     }
 
     private suspend fun restoreBackupToDatabase(backup: BackupData) {
-        database.withTransaction {
-            // Insert all data from backup
-            for (item in backup.items) itemDao.upsertItem(item)
-            for (warehouse in backup.warehouses) warehouseDao.upsertWarehouse(warehouse)
-            for (supplier in backup.suppliers) supplierDao.upsertSupplier(supplier)
-            for (lot in backup.lots) lotDao.upsertLot(lot)
-            
-            val validLotIds = backup.lots.map { it.id }.toSet()
-            val validItemIds = backup.items.map { it.id }.toSet()
+        try {
+            database.withTransaction {
+                // Parents with individual safety
+                for (item in backup.items) try { itemDao.upsertItem(item) } catch (e: Exception) { Log.e("LoginViewModel", "Error upserting item ${item.id}", e) }
+                for (warehouse in backup.warehouses) try { warehouseDao.upsertWarehouse(warehouse) } catch (e: Exception) { Log.e("LoginViewModel", "Error upserting warehouse ${warehouse.id}", e) }
+                for (supplier in backup.suppliers) try { supplierDao.upsertSupplier(supplier) } catch (e: Exception) { Log.e("LoginViewModel", "Error upserting supplier ${supplier.id}", e) }
+                for (lot in backup.lots) try { lotDao.upsertLot(lot) } catch (e: Exception) { Log.e("LoginViewModel", "Error upserting lot ${lot.id}", e) }
+                
+                val validLotIds = backup.lots.map { it.id }.toSet()
+                val validItemIds = backup.items.map { it.id }.toSet()
 
-            for (lotItem in backup.lotItems) {
-                if (lotItem.lotId in validLotIds && lotItem.itemId in validItemIds) {
-                    lotItemDao.upsertLotItem(lotItem)
+                // Insert children with safety checks
+                for (lotItem in backup.lotItems) {
+                    if (lotItem.lotId in validLotIds && lotItem.itemId in validItemIds) {
+                        try {
+                            lotItemDao.upsertLotItem(lotItem)
+                        } catch (e: Exception) {
+                            Log.e("LoginViewModel", "Skipping bad lotItem: ${lotItem.id}", e)
+                        }
+                    }
                 }
-            }
-            
-            for (lotExpense in backup.lotExpenses) {
-                if (lotExpense.lotId in validLotIds) {
-                    lotExpenseDao.upsertExpense(lotExpense)
+                
+                for (lotExpense in backup.lotExpenses) {
+                    if (lotExpense.lotId in validLotIds) {
+                        try {
+                            lotExpenseDao.upsertExpense(lotExpense)
+                        } catch (e: Exception) {
+                            Log.e("LoginViewModel", "Skipping bad lotExpense: ${lotExpense.id}", e)
+                        }
+                    }
                 }
-            }
 
-            for (transaction in backup.transactions) transactionDao.upsertTransaction(transaction)
-            for (stock in backup.stocks) stockDao.upsertStock(stock)
-            for (saleItem in backup.saleItems) saleItemDao.upsertSaleItem(saleItem)
-            for (saleExpense in backup.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
+                for (transaction in backup.transactions) transactionDao.upsertTransaction(transaction)
+                for (stock in backup.stocks) stockDao.upsertStock(stock)
+                for (saleItem in backup.saleItems) saleItemDao.upsertSaleItem(saleItem)
+                for (saleExpense in backup.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
+            }
+        } catch (e: Exception) {
+            Log.e("LoginViewModel", "Restore from backup partially failed", e)
         }
     }
 
     private suspend fun restoreFirestoreDataToDatabase(data: FirestoreBackupData) {
-        database.withTransaction {
-            for (item in data.items) itemDao.upsertItem(item)
-            for (warehouse in data.warehouses) warehouseDao.upsertWarehouse(warehouse)
-            for (supplier in data.suppliers) supplierDao.upsertSupplier(supplier)
-            for (lot in data.lots) lotDao.upsertLot(lot)
-            
-            // For child items with FKs, we should be safe in a transaction if parents were upserted,
-            // but if Firestore has a LotItem for a Lot that doesn't exist, it will still fail.
-            // Let's filter to be absolutely safe.
-            val validLotIds = data.lots.map { it.id }.toSet()
-            val validItemIds = data.items.map { it.id }.toSet()
+        try {
+            database.withTransaction {
+                // Parents with individual safety
+                for (item in data.items) try { itemDao.upsertItem(item) } catch (e: Exception) { Log.e("LoginViewModel", "Error upserting item ${item.id}", e) }
+                for (warehouse in data.warehouses) try { warehouseDao.upsertWarehouse(warehouse) } catch (e: Exception) { Log.e("LoginViewModel", "Error upserting warehouse ${warehouse.id}", e) }
+                for (supplier in data.suppliers) try { supplierDao.upsertSupplier(supplier) } catch (e: Exception) { Log.e("LoginViewModel", "Error upserting supplier ${supplier.id}", e) }
+                for (lot in data.lots) try { lotDao.upsertLot(lot) } catch (e: Exception) { Log.e("LoginViewModel", "Error upserting lot ${lot.id}", e) }
+                
+                val validLotIds = data.lots.map { it.id }.toSet()
+                val validItemIds = data.items.map { it.id }.toSet()
 
-            for (lotItem in data.lotItems) {
-                if (lotItem.lotId in validLotIds && lotItem.itemId in validItemIds) {
-                    lotItemDao.upsertLotItem(lotItem)
+                // Children
+                for (lotItem in data.lotItems) {
+                    if (lotItem.lotId in validLotIds && lotItem.itemId in validItemIds) {
+                        try {
+                            lotItemDao.upsertLotItem(lotItem)
+                        } catch (e: Exception) {
+                            Log.e("LoginViewModel", "Skipping bad lotItem from cloud: ${lotItem.id}", e)
+                        }
+                    }
                 }
-            }
-            
-            for (lotExpense in data.lotExpenses) {
-                if (lotExpense.lotId in validLotIds) {
-                    lotExpenseDao.upsertExpense(lotExpense)
+                
+                for (lotExpense in data.lotExpenses) {
+                    if (lotExpense.lotId in validLotIds) {
+                        try {
+                            lotExpenseDao.upsertExpense(lotExpense)
+                        } catch (e: Exception) {
+                            Log.e("LoginViewModel", "Skipping bad lotExpense from cloud: ${lotExpense.id}", e)
+                        }
+                    }
                 }
-            }
 
-            for (transaction in data.transactions) transactionDao.upsertTransaction(transaction)
-            for (stock in data.stocks) stockDao.upsertStock(stock)
-            for (saleItem in data.saleItems) saleItemDao.upsertSaleItem(saleItem)
-            for (saleExpense in data.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
+                for (transaction in data.transactions) transactionDao.upsertTransaction(transaction)
+                for (stock in data.stocks) stockDao.upsertStock(stock)
+                for (saleItem in data.saleItems) saleItemDao.upsertSaleItem(saleItem)
+                for (saleExpense in data.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
+            }
+        } catch (e: Exception) {
+            Log.e("LoginViewModel", "Restore from Firestore partially failed", e)
+            // We don't throw here so the user can still log in even if some data is messy
         }
     }
 

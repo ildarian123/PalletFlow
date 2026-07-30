@@ -25,6 +25,24 @@ class GoogleAuthManager @Inject constructor(
 
     private val googleSignInClient: GoogleSignInClient by lazy {
         Log.d("GoogleAuthManager", "Initializing GoogleSignInClient")
+        
+        // Log package and signature info for debugging
+        try {
+            val packageInfo = context.packageManager.getPackageInfo(
+                context.packageName, 
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+            )
+            val signatures = packageInfo.signingInfo?.apkContentsSigners
+            signatures?.forEach { signature ->
+                val md = java.security.MessageDigest.getInstance("SHA-1")
+                val digest = md.digest(signature.toByteArray())
+                val sha1 = digest.joinToString(":") { String.format("%02X", it) }
+                Log.d("GoogleAuthManager", "Runtime SHA-1 Fingerprint: $sha1")
+            }
+        } catch (e: Exception) {
+            Log.e("GoogleAuthManager", "Could not log runtime SHA-1", e)
+        }
+
         val clientId = try {
             // Use custom google_web_client_id from build.gradle to support debug/release switching
             context.getString(R.string.google_web_client_id)
@@ -88,7 +106,10 @@ class GoogleAuthManager @Inject constructor(
             }
         } catch (e: ApiException) {
             val status = com.google.android.gms.common.api.CommonStatusCodes.getStatusCodeString(e.statusCode)
-            val detailedError = "Google Error: $status (Code: ${e.statusCode})"
+            val developerHint = if (e.statusCode == 10) {
+                " (DEVELOPER_ERROR: Check SHA-1 in Firebase. If using Play Store, add the 'App Signing Key' SHA-1 from Play Console.)"
+            } else ""
+            val detailedError = "Google Error: $status (Code: ${e.statusCode})$developerHint"
             Log.e("GoogleAuthManager", detailedError, e)
             Result.failure(Exception(detailedError))
         } catch (e: Exception) {
