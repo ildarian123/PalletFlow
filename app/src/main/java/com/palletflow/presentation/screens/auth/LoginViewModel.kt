@@ -5,6 +5,7 @@ import android.util.Log
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.palletflow.data.auth.GoogleAuthManager
 import com.palletflow.data.backup.BackupData
@@ -13,6 +14,7 @@ import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.firestore.FirestoreBackupData
 import com.palletflow.data.firestore.FirestoreSyncManager
 import com.palletflow.data.local.dao.*
+import com.palletflow.data.local.database.AppDatabase
 import com.palletflow.data.util.PasswordHasher
 import com.palletflow.util.NetworkHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,6 +28,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
+    private val database: AppDatabase,
     private val authPreferences: AuthPreferences,
     private val userDao: UserDao,
     private val googleAuthManager: GoogleAuthManager,
@@ -132,30 +135,65 @@ class LoginViewModel @Inject constructor(
     }
 
     private suspend fun restoreBackupToDatabase(backup: BackupData) {
-        // Insert all data from backup
-        for (item in backup.items) itemDao.upsertItem(item)
-        for (warehouse in backup.warehouses) warehouseDao.upsertWarehouse(warehouse)
-        for (supplier in backup.suppliers) supplierDao.upsertSupplier(supplier)
-        for (lot in backup.lots) lotDao.upsertLot(lot)
-        for (lotItem in backup.lotItems) lotItemDao.upsertLotItem(lotItem)
-        for (lotExpense in backup.lotExpenses) lotExpenseDao.upsertExpense(lotExpense)
-        for (transaction in backup.transactions) transactionDao.upsertTransaction(transaction)
-        for (stock in backup.stocks) stockDao.upsertStock(stock)
-        for (saleItem in backup.saleItems) saleItemDao.upsertSaleItem(saleItem)
-        for (saleExpense in backup.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
+        database.withTransaction {
+            // Insert all data from backup
+            for (item in backup.items) itemDao.upsertItem(item)
+            for (warehouse in backup.warehouses) warehouseDao.upsertWarehouse(warehouse)
+            for (supplier in backup.suppliers) supplierDao.upsertSupplier(supplier)
+            for (lot in backup.lots) lotDao.upsertLot(lot)
+            
+            val validLotIds = backup.lots.map { it.id }.toSet()
+            val validItemIds = backup.items.map { it.id }.toSet()
+
+            for (lotItem in backup.lotItems) {
+                if (lotItem.lotId in validLotIds && lotItem.itemId in validItemIds) {
+                    lotItemDao.upsertLotItem(lotItem)
+                }
+            }
+            
+            for (lotExpense in backup.lotExpenses) {
+                if (lotExpense.lotId in validLotIds) {
+                    lotExpenseDao.upsertExpense(lotExpense)
+                }
+            }
+
+            for (transaction in backup.transactions) transactionDao.upsertTransaction(transaction)
+            for (stock in backup.stocks) stockDao.upsertStock(stock)
+            for (saleItem in backup.saleItems) saleItemDao.upsertSaleItem(saleItem)
+            for (saleExpense in backup.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
+        }
     }
 
     private suspend fun restoreFirestoreDataToDatabase(data: FirestoreBackupData) {
-        for (item in data.items) itemDao.upsertItem(item)
-        for (warehouse in data.warehouses) warehouseDao.upsertWarehouse(warehouse)
-        for (supplier in data.suppliers) supplierDao.upsertSupplier(supplier)
-        for (lot in data.lots) lotDao.upsertLot(lot)
-        for (lotItem in data.lotItems) lotItemDao.upsertLotItem(lotItem)
-        for (lotExpense in data.lotExpenses) lotExpenseDao.upsertExpense(lotExpense)
-        for (transaction in data.transactions) transactionDao.upsertTransaction(transaction)
-        for (stock in data.stocks) stockDao.upsertStock(stock)
-        for (saleItem in data.saleItems) saleItemDao.upsertSaleItem(saleItem)
-        for (saleExpense in data.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
+        database.withTransaction {
+            for (item in data.items) itemDao.upsertItem(item)
+            for (warehouse in data.warehouses) warehouseDao.upsertWarehouse(warehouse)
+            for (supplier in data.suppliers) supplierDao.upsertSupplier(supplier)
+            for (lot in data.lots) lotDao.upsertLot(lot)
+            
+            // For child items with FKs, we should be safe in a transaction if parents were upserted,
+            // but if Firestore has a LotItem for a Lot that doesn't exist, it will still fail.
+            // Let's filter to be absolutely safe.
+            val validLotIds = data.lots.map { it.id }.toSet()
+            val validItemIds = data.items.map { it.id }.toSet()
+
+            for (lotItem in data.lotItems) {
+                if (lotItem.lotId in validLotIds && lotItem.itemId in validItemIds) {
+                    lotItemDao.upsertLotItem(lotItem)
+                }
+            }
+            
+            for (lotExpense in data.lotExpenses) {
+                if (lotExpense.lotId in validLotIds) {
+                    lotExpenseDao.upsertExpense(lotExpense)
+                }
+            }
+
+            for (transaction in data.transactions) transactionDao.upsertTransaction(transaction)
+            for (stock in data.stocks) stockDao.upsertStock(stock)
+            for (saleItem in data.saleItems) saleItemDao.upsertSaleItem(saleItem)
+            for (saleExpense in data.saleExpenses) saleExpenseDao.upsertSaleExpense(saleExpense)
+        }
     }
 
     init {

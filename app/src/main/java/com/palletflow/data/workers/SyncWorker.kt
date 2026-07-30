@@ -1,9 +1,10 @@
 package com.palletflow.data.workers
 
-import android.content.Context
 import android.util.Log
+import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.hilt.work.HiltWorker
 import androidx.room.withTransaction
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.firestore.FirestoreSyncManager
@@ -18,12 +19,13 @@ import com.palletflow.data.firestore.FirestoreSyncManager.Companion.SUPPLIERS
 import com.palletflow.data.firestore.FirestoreSyncManager.Companion.TRANSACTIONS
 import com.palletflow.data.firestore.FirestoreSyncManager.Companion.WAREHOUSES
 import com.palletflow.data.local.database.AppDatabase
-import kotlinx.coroutines.flow.first
-import javax.inject.Inject
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 
-class SyncWorker(
-    context: Context,
-    params: WorkerParameters,
+@HiltWorker
+class SyncWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
     private val firestoreSyncManager: FirestoreSyncManager,
     private val database: AppDatabase,
     private val authPreferences: AuthPreferences
@@ -88,8 +90,22 @@ class SyncWorker(
             for (warehouse in cloudData.warehouses) database.warehouseDao().upsertWarehouse(warehouse)
             for (supplier in cloudData.suppliers) database.supplierDao().upsertSupplier(supplier)
             for (lot in cloudData.lots) database.lotDao().upsertLot(lot)
-            for (lotItem in cloudData.lotItems) database.lotItemDao().upsertLotItem(lotItem)
-            for (lotExpense in cloudData.lotExpenses) database.lotExpenseDao().upsertExpense(lotExpense)
+            
+            val validLotIds = cloudData.lots.map { it.id }.toSet()
+            val validItemIds = cloudData.items.map { it.id }.toSet()
+
+            for (lotItem in cloudData.lotItems) {
+                if (lotItem.lotId in validLotIds && lotItem.itemId in validItemIds) {
+                    database.lotItemDao().upsertLotItem(lotItem)
+                }
+            }
+            
+            for (lotExpense in cloudData.lotExpenses) {
+                if (lotExpense.lotId in validLotIds) {
+                    database.lotExpenseDao().upsertExpense(lotExpense)
+                }
+            }
+
             for (transaction in cloudData.transactions) database.transactionDao().upsertTransaction(transaction)
             for (stock in cloudData.stocks) database.stockDao().upsertStock(stock)
             for (saleItem in cloudData.saleItems) database.saleItemDao().upsertSaleItem(saleItem)

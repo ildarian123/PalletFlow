@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "620749428176-5afej1oj0tgrhheu9jf6kr4t70ou9pmf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.PalletFlow",
+            "certificate_hash": "f10382e516e4f834eeee829e7256f42cb563ff2b"
+          }
+        },
+        {
+          "client_id": "620749428176-gehdl8d8oi74b469u0f5atn0ul4gduc3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.PalletFlow",
+            "certificate_hash": "25fc94ca509662ab2c3cbbc95613f113459ed72a"
+          }
+        },
+        {
           "client_id": "620749428176-587d878gi186vfk5apmdp6tkoadtf39p.apps.googleusercontent.com",
           "client_type": 3
         }

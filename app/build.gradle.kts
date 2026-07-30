@@ -21,12 +21,17 @@ android {
     }
 
     buildTypes {
+        debug {
+            resValue("string", "google_web_client_id", "620749428176-587d878gi186vfk5apmdp6tkoadtf39p.apps.googleusercontent.com")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Replace with your release web client ID if different, or ensure SHA-1 is registered in Firebase
+            resValue("string", "google_web_client_id", "620749428176-587d878gi186vfk5apmdp6tkoadtf39p.apps.googleusercontent.com")
         }
     }
     compileOptions {
@@ -35,6 +40,7 @@ android {
     }
     buildFeatures {
         compose = true
+        resValues = true
     }
 
     packaging {
@@ -64,6 +70,8 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
     
     // Room
     implementation(libs.room.runtime)

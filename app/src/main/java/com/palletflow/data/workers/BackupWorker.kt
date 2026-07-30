@@ -1,19 +1,21 @@
 package com.palletflow.data.workers
 
-import android.content.Context
 import android.util.Log
+import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.hilt.work.HiltWorker
 import com.palletflow.data.backup.BackupData
 import com.palletflow.data.backup.GoogleDriveBackupManager
 import com.palletflow.data.datastore.AuthPreferences
 import com.palletflow.data.local.database.AppDatabase
-import kotlinx.coroutines.flow.first
-import javax.inject.Inject
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 
-class BackupWorker(
-    context: Context,
-    params: WorkerParameters,
+@HiltWorker
+class BackupWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
     private val backupManager: GoogleDriveBackupManager,
     private val database: AppDatabase,
     private val authPreferences: AuthPreferences
@@ -25,16 +27,16 @@ class BackupWorker(
 
             // Get all data
             val backupData = BackupData(
-                items = database.itemDao().getAllItemsByUser(userId).first(),
-                warehouses = database.warehouseDao().getAllWarehousesByUser(userId).first(),
-                suppliers = database.supplierDao().getAllSuppliersByUser(userId).first(),
-                lots = database.lotDao().getLotsByUser(userId).first(),
-                lotItems = database.lotItemDao().getLotItemsByUser(userId).first(),
-                lotExpenses = database.lotExpenseDao().getLotExpensesByUser(userId).first(),
-                transactions = database.transactionDao().getAllTransactions(userId).first(),
-                stocks = database.stockDao().getStocksByUser(userId).first(),
-                saleItems = database.saleItemDao().getSaleItemsByUser(userId).first(),
-                saleExpenses = database.saleExpenseDao().getSaleExpensesByUser(userId).first(),
+                items = database.itemDao().getAllItemsByUserSync(userId),
+                warehouses = database.warehouseDao().getAllWarehousesByUserSync(userId),
+                suppliers = database.supplierDao().getAllSuppliersByUserSync(userId),
+                lots = database.lotDao().getLotsByUserSync(userId),
+                lotItems = database.lotItemDao().getLotItemsByUserSync(userId),
+                lotExpenses = database.lotExpenseDao().getLotExpensesByUserSync(userId),
+                transactions = database.transactionDao().getAllTransactionsSync(userId),
+                stocks = database.stockDao().getStocksByUserSync(userId),
+                saleItems = database.saleItemDao().getSaleItemsByUserSync(userId),
+                saleExpenses = database.saleExpenseDao().getSaleExpensesByUserSync(userId),
                 timestamp = System.currentTimeMillis()
             )
 
