@@ -30,6 +30,10 @@ fun ReportsScreen(
     var selectedDateFilter by remember { mutableStateOf(DateFilterReport.MONTH) }
     var selectedWarehouse by remember { mutableStateOf<String?>(null) }
 
+    LaunchedEffect(Unit) {
+        viewModel.refresh()
+    }
+
     Scaffold(
         containerColor = Color(0xFF121212),
         topBar = {

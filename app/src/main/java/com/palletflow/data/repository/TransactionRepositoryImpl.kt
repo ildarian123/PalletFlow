@@ -268,6 +268,9 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun getSaleItemsByDateRange(userId: String, startDate: Long, endDate: Long) = 
         saleItemDao.getSaleItemsByDateRange(userId, startDate, endDate)
 
+    override suspend fun getSaleItemsByItem(itemId: String) = 
+        saleItemDao.getSaleItemsByItem(itemId)
+
     override suspend fun getSaleExpenses(transactionId: String) = 
         saleExpenseDao.getExpensesByTransactionId(transactionId)
 }

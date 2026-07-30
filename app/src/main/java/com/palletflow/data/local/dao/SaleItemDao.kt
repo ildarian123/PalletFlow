@@ -14,6 +14,9 @@ interface SaleItemDao {
 
     @Query("SELECT * FROM sale_items WHERE transactionId = :transactionId")
     suspend fun getItemsByTransactionId(transactionId: String): List<SaleItem>
+
+    @Query("SELECT * FROM sale_items WHERE itemId = :itemId")
+    suspend fun getSaleItemsByItem(itemId: String): List<SaleItem>
     
     @Query("SELECT * FROM sale_items WHERE transactionId = :transactionId")
     fun getItemsByTransactionIdFlow(transactionId: String): Flow<List<SaleItem>>

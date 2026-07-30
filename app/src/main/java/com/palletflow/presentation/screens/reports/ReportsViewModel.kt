@@ -6,16 +6,17 @@ import androidx.lifecycle.viewModelScope
 import com.palletflow.domain.usecase.report.*
 import com.palletflow.domain.usecase.warehouse.GetAllWarehousesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ReportsViewModel @Inject constructor(
-    private val getFinancialOverviewUseCase: GetFinancialOverviewUseCase,
-    private val getLotProfitabilityUseCase: GetLotProfitabilityUseCase,
-    private val getPlatformSalesUseCase: GetPlatformSalesUseCase,
+    private val observeFinancialOverviewUseCase: ObserveFinancialOverviewUseCase,
+    private val observeLotProfitabilityUseCase: ObserveLotProfitabilityUseCase,
+    private val observePlatformSalesUseCase: ObservePlatformSalesUseCase,
     private val getAllWarehousesUseCase: GetAllWarehousesUseCase
 ) : ViewModel() {
 
@@ -24,16 +25,50 @@ class ReportsViewModel @Inject constructor(
 
     private val _selectedDateFilter = MutableStateFlow(DateFilterReport.MONTH)
     private val _selectedWarehouse = MutableStateFlow<String?>(null)
+    private val _refreshTrigger = MutableSharedFlow<Unit>(replay = 1)
 
     val warehouses = getAllWarehousesUseCase().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     init {
-        // Observe filters and reload data
-        combine(_selectedDateFilter, _selectedWarehouse) { dateFilter, warehouseId ->
-            Pair(dateFilter, warehouseId)
-        }.onEach { (dateFilter, warehouseId) ->
-            loadReportData(dateFilter, warehouseId)
+        _refreshTrigger.tryEmit(Unit)
+
+        // Observe filters and reload data automatically
+        combine(
+            _selectedDateFilter,
+            _selectedWarehouse,
+            _refreshTrigger
+        ) { dateFilter, warehouseId, _ ->
+            dateFilter to warehouseId
+        }.flatMapLatest { (dateFilter, warehouseId) ->
+            val range = getDateRange(dateFilter)
+            
+            combine(
+                observeFinancialOverviewUseCase(range.first, range.second),
+                observeLotProfitabilityUseCase(range.first, range.second, warehouseId),
+                observePlatformSalesUseCase(range.first, range.second, warehouseId)
+            ) { overview, lots, platforms ->
+                Triple(overview, lots, platforms)
+            }.onStart {
+                _uiState.update { it.copy(isLoading = true) }
+            }
+        }.onEach { (overview, lots, platforms) ->
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    overview = overview,
+                    lotProfits = lots,
+                    platformSales = platforms,
+                    error = null
+                )
+            }
+        }.catch { e ->
+            Log.e("ReportsViewModel", "Error loading reports", e)
+            _uiState.update { it.copy(isLoading = false, error = "Failed to load reports") }
         }.launchIn(viewModelScope)
+    }
+
+    fun refresh() {
+        _refreshTrigger.tryEmit(Unit)
     }
 
     fun onTabChange(tabIndex: Int) {
@@ -46,46 +81,6 @@ class ReportsViewModel @Inject constructor(
 
     fun onWarehouseChange(warehouseId: String?) {
         _selectedWarehouse.value = warehouseId
-    }
-
-    private fun loadReportData(dateFilter: DateFilterReport, warehouseId: String?) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            try {
-                val dateRange = getDateRange(dateFilter)
-                
-                val overviewResult = getFinancialOverviewUseCase(
-                    dateRange.first,
-                    dateRange.second,
-                    warehouseId
-                )
-                
-                val lotsResult = getLotProfitabilityUseCase(dateRange.first, dateRange.second, warehouseId)
-                val platformResult = getPlatformSalesUseCase(dateRange.first, dateRange.second, warehouseId)
-
-                if (overviewResult.isSuccess && lotsResult.isSuccess && platformResult.isSuccess) {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            overview = overviewResult.getOrNull(),
-                            lotProfits = lotsResult.getOrNull() ?: emptyList(),
-                            platformSales = platformResult.getOrNull() ?: emptyList(),
-                            error = null
-                        )
-                    }
-                } else {
-                    val error = listOfNotNull(
-                        overviewResult.exceptionOrNull()?.message,
-                        lotsResult.exceptionOrNull()?.message,
-                        platformResult.exceptionOrNull()?.message
-                    ).firstOrNull() ?: "Failed to load reports"
-                    _uiState.update { it.copy(isLoading = false, error = error) }
-                }
-            } catch (e: Exception) {
-                Log.e("ReportsViewModel", "Failed to load report data", e)
-                _uiState.update { it.copy(isLoading = false, error = "An error occurred") }
-            }
-        }
     }
 
     private fun getDateRange(filter: DateFilterReport): Pair<Long, Long> {
@@ -112,7 +107,7 @@ class ReportsViewModel @Inject constructor(
                 calendar.add(Calendar.YEAR, -1)
                 calendar.timeInMillis
             }
-            DateFilterReport.CUSTOM -> 0L // Handle custom if needed
+            DateFilterReport.CUSTOM -> 0L
         }
         return start to now
     }

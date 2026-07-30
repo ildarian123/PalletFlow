@@ -25,5 +25,6 @@ interface TransactionRepository {
     suspend fun getAllSaleItems(): List<com.palletflow.data.local.entity.SaleItem>
     fun getAllSaleItemsFlow(): Flow<List<com.palletflow.data.local.entity.SaleItem>>
     suspend fun getSaleItemsByDateRange(userId: String, startDate: Long, endDate: Long): List<com.palletflow.data.local.entity.SaleItem>
+    suspend fun getSaleItemsByItem(itemId: String): List<com.palletflow.data.local.entity.SaleItem>
     suspend fun getSaleExpenses(transactionId: String): List<com.palletflow.data.local.entity.SaleExpense>
 }

@@ -40,4 +40,7 @@ interface LotItemDao {
 
     @Query("SELECT lotId FROM lot_items WHERE itemId = :itemId LIMIT 1")
     suspend fun getLotIdForItem(itemId: String): String?
+
+    @Query("SELECT * FROM lot_items WHERE itemId = :itemId ORDER BY createdAt ASC")
+    suspend fun getLotItemsByItemSorted(itemId: String): List<LotItem>
 }

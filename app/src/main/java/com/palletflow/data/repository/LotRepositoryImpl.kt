@@ -333,6 +333,9 @@ class LotRepositoryImpl @Inject constructor(
 
     override suspend fun getLotIdForItem(itemId: String): String? = 
         lotItemDao.getLotIdForItem(itemId)
+
+    override suspend fun getLotItemsByItemSorted(itemId: String): List<LotItem> =
+        lotItemDao.getLotItemsByItemSorted(itemId)
 }
 
 data class FirestoreLotSyncData(

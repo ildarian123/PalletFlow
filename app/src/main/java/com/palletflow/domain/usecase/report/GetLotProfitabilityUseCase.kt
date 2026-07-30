@@ -40,15 +40,23 @@ class GetLotProfitabilityUseCase @Inject constructor(
                 val incomingTransaction = incomingTransactions.find { it.lotId == lot.id }
                 val salesForLot = saleItemsInRange.filter { it.lotId == lot.id }
                 
-                val cost = incomingTransaction?.amount ?: lot.purchasePrice
+                val totalLotCost = incomingTransaction?.amount ?: lot.purchasePrice
+                val totalLotUnits = incomingTransaction?.quantity ?: 1 // Avoid division by zero
+                val costPerUnit = totalLotCost / if (totalLotUnits > 0) totalLotUnits else 1
+                
+                val soldQuantity = salesForLot.sumOf { it.quantity }
                 val revenue = salesForLot.sumOf { it.sellingPrice * it.quantity }
-                val profit = revenue - cost
-                val roi = if (cost > 0) (profit / cost * 100) else 0.0
+                
+                // COGS (Cost of Goods Sold) = Cost of the specific units that were sold
+                val cogs = costPerUnit * soldQuantity
+                val profit = revenue - cogs
+                
+                val roi = if (cogs > 0) (profit / cogs * 100) else 0.0
 
                 LotProfitData(
                     lotNumber = lot.lotNumber,
                     date = lot.createdAt,
-                    cost = cost,
+                    cost = totalLotCost, // Still show total lot cost for reference
                     revenue = revenue,
                     profit = profit,
                     roi = roi,

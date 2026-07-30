@@ -46,26 +46,15 @@ class CreateSaleUseCase @Inject constructor(
 
         // Handle Update vs Create
         return try {
-            // Ensure lotId is populated if missing
-            val processedItems = items.map { item ->
-                if (item.lotId.isBlank()) {
-                    val lotIdFromDb = lotRepository.getLotIdForItem(item.itemId)
-                    item.copy(lotId = lotIdFromDb ?: "")
-                } else {
-                    item
-                }
-            }
-
             if (saleId != null) {
                 // UPDATE FLOW
                 val oldItems = saleItemDao.getItemsByTransactionId(saleId)
                 
                 // Check if we have enough stock for new items, considering old items will be returned to stock
-                for (item in processedItems) {
-                    val oldItem = oldItems.find { it.itemId == item.itemId }
-                    val oldQty = oldItem?.quantity ?: 0
+                for (item in items) {
+                    val oldItemTotal = oldItems.filter { it.itemId == item.itemId }.sumOf { it.quantity }
                     val currentStock = stockRepository.getStock(userId, item.itemId, warehouseId)?.quantity ?: 0
-                    val effectiveStock = currentStock + oldQty
+                    val effectiveStock = currentStock + oldItemTotal
                     
                     if (effectiveStock < item.quantity) {
                         return Result.failure(Exception("Not enough ${item.itemName} in warehouse (available: $effectiveStock)"))
@@ -78,11 +67,14 @@ class CreateSaleUseCase @Inject constructor(
                 }
 
                 // 2. Apply new stock impact
-                for (newItem in processedItems) {
+                for (newItem in items) {
                     stockRepository.decrementQuantity(userId, newItem.itemId, warehouseId, newItem.quantity)
                 }
 
-                // 3. Update main Transaction record
+                // 3. Distribute sale quantity across Lots using FIFO
+                val distributedSaleItems = distributeAcrossLots(userId, saleId, items)
+
+                // 4. Update main Transaction record
                 val existingTransaction = transactionRepository.getTransactionById(saleId, userId)
                     ?: throw Exception("Sale not found")
                 
@@ -90,31 +82,23 @@ class CreateSaleUseCase @Inject constructor(
                     documentNumber = saleNumber,
                     platform = platform,
                     warehouseFromId = warehouseId,
-                    amount = processedItems.sumOf { it.sellingPrice * it.quantity } + expenses.sumOf { it.amount },
-                    quantity = processedItems.sumOf { it.quantity },
+                    amount = items.sumOf { it.sellingPrice * it.quantity } + expenses.sumOf { it.amount },
+                    quantity = items.sumOf { it.quantity },
                     updatedAt = System.currentTimeMillis(),
-                    notes = "Sale ${processedItems.size} item(s) on $platform"
+                    notes = "Sale ${items.size} item(s) on $platform",
+                    lotId = distributedSaleItems.firstOrNull()?.lotId // Track primary lot at top level
                 )
                 transactionRepository.updateTransaction(updatedTransaction)
 
-                // 4. Update items and expenses (Delete old, insert new)
+                // 5. Update items and expenses (Delete old, insert new)
                 val oldSaleItems = saleItemDao.getItemsByTransactionId(saleId)
                 val oldSaleExpenses = saleExpenseDao.getExpensesByTransactionId(saleId)
                 
-                // Cloud Cleanup
                 for (item in oldSaleItems) firestoreSyncManager.deleteFromCloud("sale_items", item.id)
                 for (expense in oldSaleExpenses) firestoreSyncManager.deleteFromCloud("sale_expenses", expense.id)
 
                 saleItemDao.deleteItemsByTransactionId(saleId)
-                for (item in processedItems) {
-                    val saleItem = SaleItem(
-                        userId = userId,
-                        transactionId = saleId,
-                        itemId = item.itemId,
-                        lotId = item.lotId,
-                        quantity = item.quantity,
-                        sellingPrice = item.sellingPrice
-                    )
+                for (saleItem in distributedSaleItems) {
                     saleItemDao.upsertSaleItem(saleItem)
                     firestoreSyncManager.syncToCloud("sale_items", saleItem.id, saleItem)
                 }
@@ -134,50 +118,41 @@ class CreateSaleUseCase @Inject constructor(
                 Result.success(updatedTransaction)
             } else {
                 // CREATE FLOW
-                for (item in processedItems) {
+                for (item in items) {
                     val stock = stockRepository.getStock(userId, item.itemId, warehouseId)
                     if (stock == null || stock.quantity < item.quantity) {
                         return Result.failure(Exception("Not enough ${item.itemName} in warehouse (available: ${stock?.quantity ?: 0})"))
                     }
                 }
 
-                var totalAmount = 0.0
-                var totalQuantity = 0
-
-                // Decrement stock for each item
-                for (item in processedItems) {
+                // Apply stock impact
+                for (item in items) {
                     stockRepository.decrementQuantity(userId, item.itemId, warehouseId, item.quantity)
-                    totalAmount += item.sellingPrice * item.quantity
-                    totalQuantity += item.quantity
                 }
 
                 val transactionId = java.util.UUID.randomUUID().toString()
+                
+                // Distribute across lots
+                val distributedSaleItems = distributeAcrossLots(userId, transactionId, items)
+
                 val transaction = Transaction(
                     id = transactionId,
                     userId = userId,
                     type = TransactionType.SALE,
                     status = TransactionStatus.COMPLETED,
-                    itemId = processedItems.firstOrNull()?.itemId,
-                    lotId = processedItems.firstOrNull()?.lotId,
-                    quantity = totalQuantity,
-                    amount = totalAmount + expenses.sumOf { it.amount },
+                    itemId = items.firstOrNull()?.itemId,
+                    lotId = distributedSaleItems.firstOrNull()?.lotId, // Primary lot
+                    quantity = items.sumOf { it.quantity },
+                    amount = items.sumOf { it.sellingPrice * it.quantity } + expenses.sumOf { it.amount },
                     platform = platform,
                     warehouseFromId = warehouseId,
                     documentNumber = saleNumber,
-                    notes = "Sale ${processedItems.size} item(s) on $platform"
+                    notes = "Sale ${items.size} item(s) on $platform"
                 )
 
                 transactionRepository.createTransaction(transaction)
 
-                for (item in processedItems) {
-                    val saleItem = SaleItem(
-                        userId = userId,
-                        transactionId = transactionId,
-                        itemId = item.itemId,
-                        lotId = item.lotId,
-                        quantity = item.quantity,
-                        sellingPrice = item.sellingPrice
-                    )
+                for (saleItem in distributedSaleItems) {
                     saleItemDao.upsertSaleItem(saleItem)
                     firestoreSyncManager.syncToCloud("sale_items", saleItem.id, saleItem)
                 }
@@ -199,6 +174,57 @@ class CreateSaleUseCase @Inject constructor(
             Log.e("CreateSaleUseCase", "Failed to save sale", e)
             Result.failure(e)
         }
+    }
+
+    private suspend fun distributeAcrossLots(
+        userId: String,
+        transactionId: String,
+        itemsToSell: List<ItemToSell>
+    ): List<SaleItem> {
+        val result = mutableListOf<SaleItem>()
+        
+        for (item in itemsToSell) {
+            val lotItems = lotRepository.getLotItemsByItemSorted(item.itemId)
+            val allPastSales = transactionRepository.getSaleItemsByItem(item.itemId)
+                .filter { it.transactionId != transactionId }
+            
+            var remainingToSell = item.quantity
+            
+            for (lotItem in lotItems) {
+                if (remainingToSell <= 0) break
+                
+                val totalSoldFromThisLot = allPastSales.filter { it.lotId == lotItem.lotId }.sumOf { it.quantity }
+                val availableInThisLot = lotItem.quantity - totalSoldFromThisLot
+                
+                if (availableInThisLot > 0) {
+                    val takeFromThisLot = minOf(remainingToSell, availableInThisLot)
+                    result.add(SaleItem(
+                        userId = userId,
+                        transactionId = transactionId,
+                        itemId = item.itemId,
+                        lotId = lotItem.lotId,
+                        quantity = takeFromThisLot,
+                        sellingPrice = item.sellingPrice
+                    ))
+                    remainingToSell -= takeFromThisLot
+                }
+            }
+            
+            // Fallback for remaining quantity (e.g. initial stock or over-sell)
+            if (remainingToSell > 0) {
+                val lastLotId = lotItems.lastOrNull()?.lotId ?: ""
+                result.add(SaleItem(
+                    userId = userId,
+                    transactionId = transactionId,
+                    itemId = item.itemId,
+                    lotId = lastLotId,
+                    quantity = remainingToSell,
+                    sellingPrice = item.sellingPrice
+                ))
+            }
+        }
+        
+        return result
     }
 }
 
